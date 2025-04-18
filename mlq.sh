@@ -400,7 +400,7 @@ EOF
             
             # Don't allow this in pipeline subshells
             if [[ ! -p /dev/stdin ]] ; then
-                echo 'You have invoked '"'"qul"'"' --nuke with no arguments.'
+                echo 'You have invoked '"'"qml"'"' --nuke with no arguments.'
                 echo 'This will delete all '"'"mlq'"'' shortcuts.'
                 local confirm
                 read -p 'Are you sure? (Y/N): ' confirm
