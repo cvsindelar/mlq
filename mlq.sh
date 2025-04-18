@@ -165,6 +165,11 @@ EOF
 	    elif [[ ( `printf '%s' "$1" | awk '($1 ~ "--helpn" && "--helpnotes" ~ $1) || $1 == "-hn"'` ) ]] ; then
                 echo 'Extra notes:'
                 echo ''
+		echo '   If you would like to add shortcuts to your own '"'"prebuilds"'"' directory then do, i.e.:'
+		echo '     cp -R -L ~/.mlq/mlq/<shortcut_dir> <your_new_prebuilds_dir>/'
+		echo '                   or'
+		echo '     cp -R -L ~/.mlq/mlq/* <your_new_prebuilds_dir>/'
+                echo ''
                 echo '   WARNING: There is nothing to prevent you from using, i.e., '"'"ml"'"' to'
                 echo '    load an ordinary module on top of a module shortcut, but results are then'
                 echo '    not guaranteed. If you wish to use another module with your shortcut environment, '
@@ -400,7 +405,7 @@ EOF
             
             # Don't allow this in pipeline subshells
             if [[ ! -p /dev/stdin ]] ; then
-                echo 'You have invoked '"'"qml"'"' --nuke with no arguments.'
+                echo 'You have invoked '"'"qml"'"' --nuke'
                 echo 'This will delete all '"'"mlq'"'' shortcuts.'
                 local confirm
                 read -p 'Are you sure? (Y/N): ' confirm
@@ -908,7 +913,7 @@ EOF
             echo "${module_spec_full[@]}" ' ...'
             
             # module -I --redirect load ${module_spec_full[@]} >& "${quikmod_lua%.*}".warnings
-            module --redirect load ${module_spec_full[@]} >& "${quikmod_lua%.*}".warnings
+            module --ignore_cache --redirect load ${module_spec_full[@]} >& "${quikmod_lua%.*}".warnings
             echo ' done.'
             
             local retVal
