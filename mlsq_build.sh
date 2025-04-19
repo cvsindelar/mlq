@@ -14,12 +14,16 @@ if [[ $1 == "--help" || $1 == "-h" || $1 == "show-all-if-ambiguous" || $# -lt 1 
     return
 fi
 shortcut_name='mlq-'"$1"
+# replace forward slashes by '-' so there is no directory in the name
+shortcut_name=`echo "${shortcut_name}"|awk '{sub("/","-",$0); print $0}'`
 
 ##################
 # Get the module build order by making a module collection with
 #  the 'module save' function.
 ##################
-collection_name="${shortcut_name##*/}"
+# Make a valid module collection name by getting rid of slashes and periods in $shortcut_name
+collection_name=`echo "${shortcut_name}"|awk '{sub("/","-",$0); gsub("[.]","_",$0); print $0}'`
+# collection_name="${shortcut_name##*/}"
 module --redirect --width=1 save "${collection_name}" >& /dev/null
 
 ##################
