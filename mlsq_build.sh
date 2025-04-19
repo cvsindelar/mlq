@@ -10,7 +10,8 @@ fi
 
 if [[ $1 == "--help" || $1 == "-h" || $1 == "show-all-if-ambiguous" || $# -lt 1 || $# -gt 1 ]] ; then
     echo 'Please give one argument: <shortcut_name>'
-    echo 'All loaded modules will be saved into the shortcut file ~/.mlq/mlq_simple/<shortcut_name>.lua'
+    echo 'Forward slashes in <shortcut_name> will be substituted by '"'"'-'"'"'.'
+    echo 'All loaded modules will be saved into the shortcut file ~/.mlq/mlq_simple/<shortcut_name_no_slashes>.lua'
     return
 fi
 shortcut_name='mlq-'"$1"
