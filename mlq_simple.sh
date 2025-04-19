@@ -9,7 +9,10 @@ mlq() {
 
     # Help function
     if [[ "$#" -lt 1 || "$1" == '-h' || "$1" == "--help" ]] ; then
-	echo 'Usage: mlq <list>|<shortcut_name>'
+	echo 'Usage:'
+	echo '       mlq -l                  lists available shortcuts'
+	echo '       mlq <shortcut_name>     loads a shortcut'
+	echo ''
 	echo 'Use '"'"'source '"${__mlq_base_dir}"'/mlq_build.sh'"'"' to build shortcuts'
 	return
     fi
