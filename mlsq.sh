@@ -1,7 +1,7 @@
 __mlq_base_dir="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 __mlq_base_simple_dir="${__mlq_base_dir}/mlq_simple"
 
-mlqs() {
+mlsq() {
     lib1="${__mlq_base_simple_dir}"
     lib2="${HOME}"'/.mlq/mlq_simple'
     mkdir -p "${lib1}"
@@ -9,13 +9,13 @@ mlqs() {
 
     # Help function
     if [[ "$#" -lt 1 || "$1" == '-h' || "$1" == "--help" ]] ; then
-        echo 'mlqs: Module loader-quick and simple'
+        echo 'mlsq: Module loader-quick and simple'
         echo ''
 	echo 'Usage:'
-	echo '       mlqs -l                  lists available shortcuts'
-	echo '       mlqs <shortcut_name>     loads a shortcut'
+	echo '       mlsq -l                  lists available shortcuts'
+	echo '       mlsq <shortcut_name>     loads a shortcut'
 	echo ''
-	echo 'Use '"'"'source '"${__mlq_base_dir}"'/mlqs_build.sh'"'"' to build shortcuts'
+	echo 'Use '"'"'source '"${__mlq_base_dir}"'/mlsq_build.sh'"'"' to build shortcuts'
 	return
     fi
 
