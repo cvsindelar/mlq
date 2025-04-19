@@ -15,7 +15,7 @@ mlqs() {
 	echo '       mlqs -l                  lists available shortcuts'
 	echo '       mlqs <shortcut_name>     loads a shortcut'
 	echo ''
-	echo 'Use '"'"'source '"${__mlq_base_dir}"'/mlq_build.sh'"'"' to build shortcuts'
+	echo 'Use '"'"'source '"${__mlq_base_dir}"'/mlqs_build.sh'"'"' to build shortcuts'
 	return
     fi
 
