@@ -412,7 +412,8 @@ EOF
                 if [[ $confirm == [yY] || $confirm == [yY][eE][sS] ]]; then
                     module reset > /dev/null 2>&1
                     printf 'Nuking... ' 
-                    /bin/rm -r "${HOME}"/.mlq
+                    /bin/rm -r "${HOME}"/.mlq/mlq
+                    /bin/rm -r "${HOME}"/.mlq/mlq_custom
                     mkdir -p "${mlq_dir}"
                     mkdir -p "${mlq_custom_dir}"
                     
@@ -914,7 +915,6 @@ EOF
             
             # module -I --redirect load ${module_spec_full[@]} >& "${quikmod_lua%.*}".warnings
             module --ignore_cache --redirect load ${module_spec_full[@]} >& "${quikmod_lua%.*}".warnings
-            echo ' done.'
             
             local retVal
             retVal=$?
@@ -938,6 +938,7 @@ EOF
 		build_failed=1
 		break
             fi
+            echo ' done.'
 
             if [[ "${safe_build}" ]] ; then
 		if [ `awk 'BEGIN {sum=0} tolower($0) ~ "warn" {sum += NF} END {print sum}' "${quikmod_lua%.*}".warnings` -gt 0 ] ; then
