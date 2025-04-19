@@ -10,13 +10,16 @@ fi
 
 if [[ $1 == "--help" || $1 == "-h" || $1 == "show-all-if-ambiguous" || $# -lt 1 || $# -gt 1 ]] ; then
     echo 'Please give one argument: <shortcut_name>'
+    echo ''
     echo 'Forward slashes in <shortcut_name> will be substituted by '"'"'-'"'"'.'
-    echo 'All loaded modules will be saved into the shortcut file ~/.mlq/mlq_simple/<shortcut_name_no_slashes>.lua'
+    echo ''
+    echo 'All loaded modules will be saved into the shortcut file:'
+    echo '  ~/.mlq/mlq_simple/mlq-<shortcut_name_no_slashes>.lua'
     return
 fi
 shortcut_name='mlq-'"$1"
 # replace forward slashes by '-' so there is no directory in the name
-shortcut_name=`echo "${shortcut_name}"|awk '{sub("/","-",$0); print $0}'`
+shortcut_name=`echo "${shortcut_name}"|awk '{gsub("/","-",$0); print $0}'`
 
 ##################
 # Get the module build order by making a module collection with
