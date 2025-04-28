@@ -1,7 +1,5 @@
 # mlsq: Module loader-simple and quick
 # Please source this script to access the quik module-loading shortcut function mlsq
-#
-# Use 'source mlq.sh deactivate' to remove all traces of these functions
 
 ###########################################
 ###########################################
@@ -57,7 +55,7 @@ function mlsq() {
 	echo '       mlsq -l                  lists available shortcuts'
 	echo '       mlsq <shortcut_name>     loads a shortcut'
 	echo ''
-	echo 'Use '"'"'source '"${__mlq_base_dir}"'/mlsq_build.sh'"'"' to build shortcuts'
+	echo 'Use '"'"'source '"${__mlq_base_dir}"'/mlq_simple_build.sh'"'"' to build shortcuts'
 	return
     fi
 
