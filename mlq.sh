@@ -1456,6 +1456,33 @@ EOF
         ###########################################
         # Ordinary module functions
         ###########################################
+        if [[ -f "${quikmod_lua}" && ! "${fall_back}" ]] ; then
+            ###########################################
+            # Load the shortcut
+            ###########################################
+            local spec
+            spec=`awk '{printf("\n"); for(i=1; i <= NF-1; ++i) printf("%s, ", $i); printf($i)}' "${quikmod_lua%.*}".spec`
+
+            printf "%s" "Loading shortcut ${shortcut_name} with included modules:"
+            printf "${spec}"
+            printf '..'
+            
+            # Don't try to do this trick with other modules around
+            __mlq_reset
+            echo '.'
+
+            __mlq_orig_module use -a "${mlq_dir}/${collection_name}"
+            __mlq_orig_module load "${shortcut_name_full}"
+
+	    if [[ $? == 0 ]] ; then
+		__mlqs_active="${shortcut_name_full}"
+		echo 'Use '"'"'mlq -r'"'"' (or '"'"'module reset'"'"' / '"'"'module purge'"'"') to turn off this shortcut.'
+	    else
+		echo 'An error occurred loading the shortcut. Falling back to ordinary module loading...'
+		fall_back=1
+	    fi
+	fi
+	
         if [[ ! -f "${quikmod_lua}" || "${fall_back}" ]] ; then
 
 	    # 'list' and 'reset' are handled specially because they invoked by
@@ -1471,38 +1498,8 @@ EOF
 		__mlq_orig_module use "${__mlq_path}"
 		__mlq_orig_module load ${module_spec[@]}
 	    fi
-        else
-            # if [[ ! -f "${quikmod_lua}" || "${fall_back}" ]] ; then
-            ###########################################
-            # Load the shortcut
-            ###########################################
-            local spec
-            spec=`awk '{printf("\n"); for(i=1; i <= NF-1; ++i) printf("%s, ", $i); printf($i)}' "${quikmod_lua%.*}".spec`
-
-            printf "%s" "Loading shortcut ${shortcut_name} with included modules:"
-            printf "${spec}"
-            printf '..'
-            
-            # Don't try to do this trick with other modules around
-            __mlq_reset
-            echo '.'
-
-            # mlq_user_orig_modpath="${MODULEPATH}"
-            # export MODULEPATH="${mlq_dir}/${collection_name}"
-
-            __mlq_orig_module use -a "${mlq_dir}/${collection_name}"
-            __mlq_orig_module load "${shortcut_name_full}"
-            __mlqs_active="${shortcut_name_full}"
-            
-            # export MODULEPATH="${mlq_user_orig_modpath}":"${mlq_dir}/${collection_name}"
-            
-            echo 'Use '"'"'mlq -r'"'"' (or '"'"'module reset'"'"' / '"'"'module purge'"'"') to turn off this shortcut.'
-        fi
-        # if [[ ! -f "${quikmod_lua}" || "${fall_back}" ]] ; then
-        
-        return
+	fi
     fi
-    # if [[ "${request_type}" == 'load' ]] ; then
 }
 
 ###########################################
