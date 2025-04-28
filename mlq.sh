@@ -62,6 +62,9 @@ if [[ "$1" == "--mlq_load" ]]; then
         fi
         __mlq_version="$2"
     fi
+    # Unsetting __mlqs_active makes sure it will be refreshed when mlq is called
+    #  for the first time
+    unset __mlqs_active
 else
     # Specify that mlq is not being loaded as an lmod module
     unset __mlq_version
@@ -120,6 +123,10 @@ if [[ "$1" == "--mlq_unload" ]]; then
 fi
 
 __mlq_activated=1
+
+# Location of the script and its default shortcut library
+__mlq_base_dir="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+__mlq_prebuilds_dir="${__mlq_base_dir}/mlq_prebuilds"
 
 ###########################################
 ###########################################
@@ -237,10 +244,6 @@ function __mlq_shortcut_reset() {
 ###########################################
 ###########################################
 
-# Location of the script and its default shortcut library
-__mlq_base_dir="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-__mlq_prebuilds_dir="${__mlq_base_dir}/mlq_prebuilds"
-
 # Enable autocompletion for mlq the same as 'module':
 # t=(`complete -p ml`)
 # complete -F "${t[2]}" mlq
@@ -262,44 +265,47 @@ function mlq() {
     local n_argin
     n_argin=$#
 
+    local mlq_user_orig_modpath
+    mlq_user_orig_modpath="${MODULEPATH}"
+        
     ###########################################
     # Set __mlqs_active to any active shortcut
     # (there shouldn't be more than one, but handle that case
     #  anyway, to be safe)
     ###########################################
-    local __mlqs_active_candidates
-    local mod
-    local mod_file
 
-    __mlqs_active=
-    mlqs_active_candidates=(`__mlq_orig_module -t --redirect list|grep '^mlq[-]'`)
-    for mod in ${mlqs_active_candidates[@]} ; do
-        mod_file=`__mlq_orig_module --redirect --location show "${mod}"`
+    if [[ ! ${__mlqs_active} ]] ; then
+	local __mlqs_active_candidates
+	local mod
+	local mod_file
+	
+	mlqs_active_candidates=(`__mlq_orig_module -t --redirect list|grep '^mlq[-]'`)
+	for mod in ${mlqs_active_candidates[@]} ; do
+            mod_file=`__mlq_orig_module --redirect --location show "${mod}"`
 
-        # Screen out 'imposter' modules that start with 'mlq-' but are not shortcuts
-        is_qmod=`echo "${mod_file}" | \
+            # Screen out 'imposter' modules that start with 'mlq-' but are not shortcuts
+            is_qmod=`echo "${mod_file}" | \
                       awk -v qhome="${HOME}"/.mlq/mlq \
                       '{ if(substr($1,1,length(qhome)) == qhome) print(1); }'`
-        
-        if [[ "${is_qmod}"  ]] ; then
-            if [[ ! "${__mlqs_active}" ]] ; then
-                __mlqs_active=("${mod}")
-            else
-                __mlqs_active=("${__mlqs_active}" "${mod}")
+            
+            if [[ "${is_qmod}"  ]] ; then
+		if [[ ! "${__mlqs_active}" ]] ; then
+                    __mlqs_active=("${mod}")
+		else
+                    __mlqs_active=("${__mlqs_active}" "${mod}")
+		fi
             fi
-        fi
-    done
-
+	done
+    fi
+    
     if [[ ! "${__mlqs_active}" ]] ; then
         __mlqs_active='none'
     fi
 
-    local mlq_user_orig_modpath
-    
     ###########################################
     # Parse the arguments
     ###########################################
-    
+
     ###########################################
     # --help, --helpful or no arguments: Print help info
     ###########################################
@@ -464,7 +470,6 @@ EOF
                 
             # __mlq_orig_module --ignore_cache list # |& awk '$0 == "Currently Loaded Modules:" {getline; print}'
             
-            mlq_user_orig_modpath="${MODULEPATH}"
             if [[ "${__mlqs_active[@]}" && "${__mlqs_active}" != 'none' ]]; then
                 # Check if ordinary modules are also present (shouldn't be!)
                 if [[ `__mlq_orig_module --redirect -t list|grep -v StdEnv|grep -v '^mlq[-|/]'` ]] ; then
@@ -567,7 +572,6 @@ EOF
     if [[ `printf '%s' "$1" | awk '($1 ~ "--a" && "--avail" ~ $1) || $1 == "-a" {print 1}'` ]]; then
         echo 'All available module shortcuts:'
 
-        mlq_user_orig_modpath="${MODULEPATH}"
         export MODULEPATH="${mlq_custom_dir}"
 
         # Below, we print all the lua files in .mlq.mlq (including the custom-named ones, so redundant
@@ -969,7 +973,6 @@ EOF
         
         # Restore the modulepath from the shortcut in case a custom path was present
         #  during the original shortcut build (i.e. if the user had previously done 'module use')
-        mlq_user_orig_modpath="${MODULEPATH}"
         if [[ "${build_modpath}" ]] ; then
             export MODULEPATH="${build_modpath}"
         fi
@@ -1415,7 +1418,6 @@ EOF
             echo 'Shortcut '"'""${shortcut_name}""'"' is now available. To use, type:'
             echo 'mlq '"${shortcut_name}"
             echo ''
-            return
 
             # Below, we break out of while statement;
             #  we never iterate, we just use it as an 'if' statement
@@ -1519,14 +1521,6 @@ if [ "$(type -t _ml)" = 'function' ]; then
 fi
 
 function mlq_check() {
-    unset __mlq_module_version
-    unset __mlq_module_file
-    unset __mlq_module_callstack
-    unset __mlq_expected_versions
-    declare -Ag __mlq_module_file
-    declare -Ag __mlq_module_version
-    declare -Ag __mlq_module_callstack
-    declare -Ag __mlq_expected_versions
 
     local return_status
     return_status=
@@ -1537,10 +1531,19 @@ function mlq_check() {
     if [[ "$#" -gt 0 ]] ; then
         mlq_check_args="${@:1}"
     else
-        mlq_check_args=`ml --redirect -t`
+        mlq_check_args=`__mlq_orig_module --redirect -t list`
         # Reset the module environment to speed up the checking
-        __mlq_reset
+        # __mlq_reset
     fi
+
+    unset __mlq_module_version
+    unset __mlq_module_file
+    unset __mlq_module_callstack
+    unset __mlq_expected_versions
+    declare -Ag __mlq_module_file
+    declare -Ag __mlq_module_version
+    declare -Ag __mlq_module_callstack
+    declare -Ag __mlq_expected_versions
     
     __mlq_parse_module_tree_iter ${mlq_check_args}
     if [[ $? -ne 0 ]]; then
@@ -1560,7 +1563,6 @@ function mlq_check() {
 }
 
 function __mlq_parse_module_tree_iter() {
-
     local callstack
     local toplevel
     callstack=
@@ -1579,7 +1581,6 @@ function __mlq_parse_module_tree_iter() {
     # Loop through all the input arguments;
     #  By using "${@:1}" instead of $* we can correctly handle special characters in the arguments
     for fullmod in "${@:1}" ; do
-        
         # Avoid re-parsing the same module
         if [[ "${__mlq_expected_versions[$fullmod]}" ]]; then
             continue
