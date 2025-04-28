@@ -445,6 +445,7 @@ EOF
                 echo ' TLDR examples:'
                 echo '  mlq                                      Lists any loaded shortcut;'
                 echo '                                            or, lists available custom-named shortcuts'
+                echo '  mlq -a                                   Lists all available shortcuts'
                 echo '  mlq -b SciPy-bundle/2023.02-gfbf-2022b   Builds '"'"'generic'"'"' shortcut for SciPy-bundle'
                 echo '  mlq SciPy-bundle/2023.02-gfbf-2022b      Loads the above shortcut'
                 echo '  mlq -r                                   Deactivates the shortcut'
