@@ -1,7 +1,7 @@
 easyblock = 'Tarball'
 
 name = 'mlq'
-version = '1.0-beta4'
+version = '1.0-beta5'
 
 homepage = 'https://github.com/cvsindelar/mlq'
 description = 'Defines the mlq Bash function by sourcing a script.'
