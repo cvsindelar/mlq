@@ -24,66 +24,7 @@ shortcut_name=`echo "${shortcut_name}"|awk '{gsub("/","-",$0); print $0}'`
 ##################
 # Get the list of module files, in the correct build order: 'ordered_module_list'
 ##################
-
-# Do this the fast but cumbersome way
-__mlsq_fast=1
-
-if [[ ! ${__mlsq_fast} ]] ; then
-    ##################
-    ##################
-    ##################
-    # The succinct but slow way to get ordered_module_list
-    ##################
-    ##################
-    ##################
-    local m
-    ordered_module_list=( $(for m in `ml --redirect -t|grep -v StdEnv` ; do ml --redirect --location show $m ; done) )
-else
-    ##################
-    ##################
-    ##################
-    # The following 40 lines of code use a collection file to get ordered_module_list;
-    #  much faster but cumbersome!
-    ##################
-    ##################
-    ##################
-    
-    # Make a valid module collection name by getting rid of slashes and periods in $shortcut_name
-    collection_name=`echo "${shortcut_name}"|awk '{sub("/","-",$0); gsub("[.]","_",$0); print $0}'`
-
-    # Get the module build order by making a module collection with
-    #  the 'module save' function.
-    module --redirect --width=1 save "${collection_name}" >& /dev/null
-
-    ##################
-    # Account for different naming conventions for module collection files
-    #  (there seem to be at least two)
-    ##################
-    if [[ "${LMOD_SYSTEM_NAME}" ]]; then
-	collection_file="${HOME}"/.config/lmod/${collection_name}.${LMOD_SYSTEM_NAME}
-    else
-	collection_file="${HOME}"/.config/lmod/"${collection_name}"
-    fi
-
-    ##################
-    # lua script for processing lmod collection files
-    # This obtains a list of lua modulefiles, from the saved module collection file,
-    #  defining the modules to be used for a shortcut.
-    # It also prints the load order number.
-    ##################
-    process_collection_lua_script='
-        for key, subTable in pairs(_ModuleTable_.mT) do 
-          if type(subTable) == "table" and subTable.fn then
-            print(subTable.loadOrder, subTable.fn) 
-          end 
-        end '
-
-    # Get list of modulefiles from the saved module collection file;
-    # but don't include the standard environment
-    # also, be sure to sort the list by the load order.
-    ordered_module_list=(`( cat "${collection_file}" ; echo "${process_collection_lua_script}" ) | \
-        lua - | sort -n -k 1 | awk '{print $2}' | grep -v 'StdEnv[.]lua$'`)
-fi
+ordered_module_list=( $(for m in `ml --redirect -t|grep -v StdEnv` ; do ml --redirect --location show $m ; done) )
 
 ##################
 # Concatenate all the .lua files required by this collection,
