@@ -146,7 +146,7 @@ __mlq_prebuilds_dir="${__mlq_base_dir}/mlq_prebuilds"
 ###########################################
 
 # Only do this step if there are no shortcuts in the mlq_prebuilds directory
-if [ -z "$( /bin/ls -A ${HOME}/.mlq/mlq )" ] ; then
+if [ -z "$( /bin/ls -A ${HOME}/.mlq/mlq 2> /dev/null )" ] ; then
     # Source: https://patorjk.com/software/taag/#p=display&f=Diet%20Cola&t=mlq
 
     # Welcome message
@@ -1445,7 +1445,6 @@ EOF
             fi
         fi          
     fi
-    # if [[ ( "${request_type}" == 'build' && "${need_to_build}" ) || "${rebuild}" ]]; then
     
     ###########################################
     # Load the shortcut (or perform 'ml' command)
@@ -1492,10 +1491,10 @@ EOF
 		__mlq_orig_module ${module_spec[@]}
 	    else
 		# Don't allow shortcuts if the user is trying to do ordinary module functions
-		__mlq_shortcut_reset
+		__mlq_orig_module list
 
 		echo 'Executing: '"'"'ml '"${module_spec[@]}""'"
-		__mlq_orig_module use "${__mlq_path}"
+		__mlq_orig_module list
 		__mlq_orig_module load ${module_spec[@]}
 	    fi
 	fi
