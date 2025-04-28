@@ -172,7 +172,7 @@ EOF
     fi
 
     # Add prebuilt shortcuts if available
-    if [ ! -z "$( /bin/ls -A ${__mlq_prebuilds_dir} )" ] ; then
+    if [ ! -z "$( /bin/ls -A ${__mlq_prebuilds_dir} 2> /dev/null )" ] ; then
         printf 'Setting up pre-built mlq shortcuts...'
         
         mkdir -p "${HOME}"/.mlq/mlq
@@ -251,7 +251,7 @@ if [ "$(type -t _ml)" = 'function' ]; then
     complete -F _ml mlq
 fi
 
-mkdir -p "${__mlq_prebuilds_dir}"
+# mkdir -p "${__mlq_prebuilds_dir}"
 
 function mlq() {
     local mlq_dir
@@ -406,12 +406,15 @@ EOF
                 echo '   Any command that works with '"'"ml"'"' should also work with '"'"'mlq'"'"
                 echo '    (any call not to do with mlq shortcuts gets passed straight through to '"'"'ml'"'"')'
                 echo ''
-                echo '   A shortcut module works by caching the code for one or more modules'
-                echo '    and all the modules they depend on. It faithfully executes the same code'
-                echo '    as the original modules, in the same order. Strict checking is done to ensure'
-                echo '    that if any of the involved module files changes, or even if a single modification'
-                echo '    date changes, then the shortcut falls back to ordinary module loading;'
-                echo '    the user is prompted to rebuild the shortcut'
+                echo '   A shortcut module works by doing dependency checking only once, during'
+		echo '    shortcut building. It then caches the original lua code for one or more modules'
+                echo '    and all the modules they depend on, minus the '"'"'depends_on()'"'"
+		echo '    statements, and faithfully executes this code in same order that lmod would.'
+                echo '    Rapid dependency checking is then done during shortcut loading as follows:'
+                echo '    mlq detects if any of the involved module files changes, or even if a single modification'
+                echo '    date changes. If so, then the shortcut automatically rebuilds'
+                echo '    (an interactive user is prompted to rebuild the shortcut);'
+		echo '    failing that, the shortcut falls back to ordinary module loading.'
                 echo ''
                 echo '   mlq is designed to work with '"'"'well-behaved'"'"' modules;'
                 echo '    that is, where there are no version conflicts between the modules'
@@ -1491,11 +1494,12 @@ EOF
 		__mlq_orig_module ${module_spec[@]}
 	    else
 		# Don't allow shortcuts if the user is trying to do ordinary module functions
-		__mlq_orig_module list
-
+		# echo 'Unloading mlq'
+		# __mlq_orig_module reset
+		__mlq_shortcut_reset
+		
 		echo 'Executing: '"'"'ml '"${module_spec[@]}""'"
-		__mlq_orig_module list
-		__mlq_orig_module load ${module_spec[@]}
+		module load ${module_spec[@]}
 	    fi
 	fi
     fi
