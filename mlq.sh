@@ -33,26 +33,37 @@ fi
 
 # The user can specify --mlq_load to specify we are loading mlq with lmod
 #  ('mlq' module), giving the specific version as an argument
-if [[ "$1" == "--mlq_load" ]]; then
+if [[ "$1" == "--mlq_load" && ! "${__mlq_activated}" ]]; then
+
+    # Get rid of all other loaded modules
+    # module purge
+    
     # echo Loading mlq
-    if [[ ! $# != 3 ]] ; then
+    if [[ ! $# != 4 ]] ; then
         echo 'Usage:'
-        echo    'source mlq.sh --mlq_load mlq/<version>'
+        echo    'source mlq.sh --mlq_load mlq/<version> <path-to-mlq-lua file>'
         return
     fi
 
     # Make sure the mlq module can be found
-    module is-avail "$2"
-    
-    if [[ ($? != 0) ]]; then
+    # module is-avail "$2"
+
+    # Check if the file exists and if the string ends with mlq/<version>.lua
+    if [[ ! -f "$3" || `echo $2 $3 | awk '{name=$1 ".lua"; if(index($2,name) != length($2) - length(name)+1) print 1; }'` ]]; then
         echo 'ERROR: mlq module '"'""$2""'"' not found.'
+	echo $3
         echo 'Usage:'
-        echo    'source mlq.sh --mlq_load mlq/<version>'
+        echo    'source mlq.sh --mlq_load mlq/<version> <path-to-mlq-lua file>'
         return
     else
+	# Old way:
 	# Get the path to the mlq lmod .lua file; this is stored in case
 	#  subsequent module resets remove the path from $MODULEPATH
-        __mlq_path=`module --redirect --location show "$2"|awk '{n=sub("/mlq/[^/]+[.]lua$","",$0); if(!n) n=sub("/mlq[.]lua$","",$0); if(n) print}'`
+        # __mlq_path=`module --redirect --location show "$2"|awk '{n=sub("/mlq/[^/]+[.]lua$","",$0); if(!n) n=sub("/mlq[.]lua$","",$0); if(n) print}'`
+
+	# New way: path is given by the modulefile
+	# Extract the path from the full filename
+        __mlq_path=`echo "$3"|awk '{n=sub("/mlq/[^/]+[.]lua$","",$0); if(!n) n=sub("/mlq[.]lua$","",$0); if(n) print}'`
         if [[ ! ${__mlq_path} ]] ; then
             echo 'ERROR: path to the mlq module cannot be determined!'
             echo '(this should not happen)'
@@ -62,30 +73,29 @@ if [[ "$1" == "--mlq_load" ]]; then
         fi
         __mlq_version="$2"
     fi
-    # Unsetting __mlqs_active makes sure it will be refreshed when mlq is called
-    #  for the first time
-    unset __mlqs_active
-else
-    # Specify that mlq is not being loaded as an lmod module
-    unset __mlq_version
-    unset __mlq_path
-fi
 
-# Add a hook to the 'module' command, so that it unloads mlq and any shortcut
-#  before proceeding. This avoids mixing modules with shortcuts.
-
-#  Note: we test __mlq_activated to make sure we don't try to do this a second
-#  time, which would destroy the saved original versions of 'ml' and 'module' functions!
-if [[ "${__mlq_version}" && ! "${__mlq_activated}" ]] ; then
     # Save the original 'module' function code as __mlq_orig_module
-    # Note we don't need to add a hook to 'ml', because it calls 'module'
+    # Note: we don't need to add a hook to 'ml', because it calls 'module'
+    # Also note: this can only be done once per load of the mlq module, or 
+    #  we will destroy the saved original version of the 'module' function!
+    
     eval "$(echo "__mlq_orig_module()"; declare -f module | tail -n +2)"
 
+    # Add a hook to the 'module' command, so that it unloads mlq and any shortcut
+    #  before proceeding. This avoids mixing modules with shortcuts.
     function module() {
 	echo 'Unloading the mlq shortcut environment'
 	__mlq_orig_module reset
 	module "${@:1}"
     }
+    
+    # Unsetting __mlqs_active (the active shortcut, if any) makes sure it will be 
+    #  refreshed when mlq is called for the first time
+    unset __mlqs_active
+else
+    # Specify that mlq is not being loaded as an lmod module
+    unset __mlq_version
+    unset __mlq_path
 fi
 
 # If requested, remove all traces of mlq during the mlq module unload
@@ -872,10 +882,9 @@ EOF
                             rmdir "${extended_target_dir}"
                         fi
                         rmdir "${target_dir}" 
-                    
-                        [[ -f "${lua_custom_placeholder}" ]]        && /bin/rm "${lua_custom_placeholder}"
-                        [[ -d "${extended_custom_target_dir}" ]] && rmdir "${extended_custom_target_dir}"
                     fi
+                    [[ -f "${lua_custom_placeholder}" ]]     && /bin/rm "${lua_custom_placeholder}"
+                    [[ -d "${extended_custom_target_dir}" ]] && rmdir "${extended_custom_target_dir}"
                     
                     echo 'Deleted the shortcut '"'"${shortcut_name}"'"
                     return
@@ -901,7 +910,7 @@ EOF
     build_lua_record='/bin/ls -lL ${ordered_module_list[@]}; cat ${ordered_module_list[@]}'
     
     ordered_module_list=
-    build_modpath=
+    build_modpath="${mlq_user_orig_modpath}"
 
     ###########################################
     # If loading a shortcut, check if it needs to be rebuilt.
@@ -1074,6 +1083,11 @@ EOF
             __mlq_reset
             
             echo ' done.'
+
+            # Restore the modulepath after the reset
+            if [[ "${build_modpath}" ]] ; then
+		export MODULEPATH="${build_modpath}"
+            fi
 
             # If rebuilding, use the 'unsafe' way if that was how it was done originally
             if [[ "${rebuild}" ]] ; then
@@ -1488,19 +1502,27 @@ EOF
 	
         if [[ ! -f "${quikmod_lua}" || "${fall_back}" ]] ; then
 
-	    # 'list' and 'reset' are handled specially because they invoked by
-	    #  'module' rather than 'module load'
+            # Restore the modulepath from the shortcut in case a custom path was present
+            #  during the original shortcut build (i.e. if the user had previously done 'module use')
+            if [[ "${build_modpath}" ]] ; then
+		export MODULEPATH="${build_modpath}"
+            fi
+
+	    # 'list' is handled specially so it can be done without unloading mlq;
+	    #  this allows the user to see the true module environment when mlq is active
 	    if [[ "${module_spec[0]}" == 'list' || "${module_spec[0]}" == 'reset' || \
 		      "${module_spec[0]}" == 'purge' ]] ; then
 		__mlq_orig_module ${module_spec[@]}
 	    else
 		# Don't allow shortcuts if the user is trying to do ordinary module functions
+		# This is automatically handled by invoking ml(), which calls module(),
+		#  which will have a hook installed when mlq is a module.
 		# echo 'Unloading mlq'
 		# __mlq_orig_module reset
-		__mlq_shortcut_reset
+		# __mlq_shortcut_reset
 		
 		echo 'Executing: '"'"'ml '"${module_spec[@]}""'"
-		module load ${module_spec[@]}
+		ml ${module_spec[@]}
 	    fi
 	fi
     fi

@@ -22,7 +22,7 @@ sanity_check_paths = {
 
 modluafooter = '''
 local script = pathJoin(root, "mlq.sh")
-execute {cmd="source " .. script .. " --mlq_load %(name)s/%(version)s", modeA={"load"}}
+execute {cmd="source " .. script .. " --mlq_load " .. myModuleFullName() .. " " .. myFileName(), modeA={"load"}}
 execute {cmd="source " .. script .. " --mlq_unload", modeA={"unload"}}
 '''
 

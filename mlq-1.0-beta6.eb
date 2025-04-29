@@ -1,0 +1,30 @@
+easyblock = 'Tarball'
+
+name = 'mlq'
+version = '1.0-beta5'
+
+homepage = 'https://github.com/cvsindelar/mlq'
+description = 'Defines the mlq Bash function by sourcing a script.'
+
+toolchain = SYSTEM
+
+source_urls = ['https://github.com/cvsindelar/mlq/archive/refs/tags/']
+sources = ['v%(version)s.tar.gz']
+
+start_dir = 'mlq-%(version)s'
+
+# preinstall_cmd = 'mkdir -p %(installdir)s/functions && cp mlq.sh %(installdir)s/functions/'
+
+sanity_check_paths = {
+    'files': ['mlq.sh'],
+    'dirs': ['.'],
+}
+
+modluafooter = '''
+local script = pathJoin(root, "mlq.sh")
+-- execute {cmd="source " .. script .. " --mlq_load %(name)s/%(version)s", modeA={"load"}}
+execute {cmd="source " .. script .. " --mlq_load " .. myModuleFullName() .. " " .. myFileName(), modeA={"load"}}
+execute {cmd="source " .. script .. " --mlq_unload", modeA={"unload"}}
+'''
+
+moduleclass = 'tools'
