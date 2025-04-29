@@ -11,7 +11,7 @@ ml mlq                     # Loads the mlq module
 mlq -a                     # Lists available shortcuts
 mlq -b R/4.4.1-foss-2022b  # Build a shortcut for R/4.4.1-foss-2022b
 mlq R/4.4.1-foss-2022b     # Loads the R shortcut
-mlq miniconda              # Unloads the mlq and shortcut modules and performs 'ml miniconda'
+mlq miniconda              # (if no 'miniconda' shortcut) Unloads the mlq and shortcut modules and performs 'ml miniconda'
 ```
 
 # Installation and Use
@@ -39,6 +39,10 @@ cp -R -L ~/.mlq/mlq_simple/<shortcut.lua> <path-to-mlq_simple.sh>/mlq_simple
 ```
 Shortcuts in these locations will be linked to the user cache automatically the first time a user loads the `mlq` function, or may be added thereafter with the `--prebuild` option. For `mlsq`, the global shared shortcuts are always visible.
 
+# Features
+
+<b>Automatic shortcut rebuilding</b> : When loading a shortcut, `mlq` detects if it has become out of date, and rebuilds it if possible; if not, `mlq` falls back to `ml` to load the original modules.
+
 <b>Coordination between `mlq` and `module` functions</b> : The `mlq` function does not allow shortcut modules to coexist with ordinary `lmod` modules. When `mlq` loads a shortcut, a `module reset` is automatically performed to get rid of any loaded modules. Moreover, running `module` or `ml` while the `mlq` module is active automatically unloads `mlq` together with any loaded shortcut. Finally, typing `mlq <arg> ...` where `<arg>` is not a shortcut name falls back to `ml <arg> ...`; `module reset` is performed first, with the exception of `mlq list`, which allows you to see the `mlq` module and the actual shortcut modules (named `mlq-xxxx`).
 
 <b>Module consistency checker</b> : Loading `mlq` also loads a function called `mlq_check` which checks for version consistency among a given set of modules and their dependencies. To use it, do:
@@ -54,24 +58,18 @@ mlq_check <mod1/v1> <mod2/v2> ...
 
 `mlq` works with lmod module system so you can create and use custom-built
    'shortcut' modules to accelerate the loading of large and complex
-   module environments,
+   module environments.
 
-  Shortcut (`mlq`) modules are intended to be used by themselves, without
-   other modules. When you load a shortcut with `mlq`, a `module reset` is
-   automatically performed before loading the shortcut, removing any previously
-   loaded modules. Likewise, if you use `mlq` to load an ordinary module on top
-   of a shortcut, the shortcut is automatically deactivated,
-
-  Any command that works with `ml` should also work with `mlq`
-   (any call not to do with `mlq` shortcuts gets passed straight through to `ml`),
-
-  A shortcut module works by doing dependency checking only once, during
-   shortcut building. It then caches the original lua code for one or more modules
-   and all the modules they depend on, minus the `depends_on()`
-   statements, and faithfully executes this code in same order that lmod would.
-   Rapid dependency checking is then done during shortcut loading as follows:
+ For large and complex module environments, the lmod `module` function may spend most of its loading time 
+ doing dependency checks. `mlq` works its magic by using a greatly streamlined dependency check during shortcut *loading*, 
+    relegating costly dependency checks to the shortcut *building* step. During shortcut building, 
+    a cache is built containing the original lua code for the specified modules as well as
+    all the modules these depend on, minus the `depends_on()`
+   statements. For shortcut loading, `mlq` faithfully executes this code in same order that lmod would.
+   
+   Rapid dependency checking during shortcut loading is accomplished as follows:
    `mlq` detects if any of the involved module files changes, or even if a single modification
-   date changes. If so, then `mlq` uses lmod to automatically rebuild the shortcut
+   date changes. If so, then `mlq` uses the lmod `module` command to automatically rebuild the shortcut
    (the user is prompted to rebuild the shortcut in the interactive case);
    failing that, the shortcut falls back to ordinary module loading.
 
