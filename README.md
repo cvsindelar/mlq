@@ -42,7 +42,7 @@ Shortcuts in these locations will be linked to the user cache automatically the 
 # How it works
 
 `mlq` works with lmod module system so you can create and use custom-built
-   `shortcut` modules to accelerate the loading of large and complex
+   'shortcut' modules to accelerate the loading of large and complex
    module environments,
 
   Shortcut (`mlq`) modules are intended to be used by themselves, without
