@@ -3,7 +3,16 @@ Module Loader-Quick (for lmod)
 
 # What it's for
 
-Under certain circumstances, loading of certain modules or module combinations within the [lmod](https://lmod.readthedocs.io/en/latest/) system can become tedious and slow. `mlq` is a bash function that can accelerate the loading of such environments from 20 or more seconds down to two or three seconds. ``mlq`` works as a layer on top of the `lmod` system and works seamlessly together with it.
+Under certain circumstances, loading of certain modules or module combinations within the [lmod](https://lmod.readthedocs.io/en/latest/) system can become tedious and slow. `mlq` is a bash function that can accelerate the loading of such environments, especially when the original load times start to exceed 10 seconds; speed-up factors can reach 20-fold. ``mlq`` works as a layer on top of the `lmod` system and works seamlessly together with it.
+
+Example use cases:
+```
+ml mlq                     # Loads the mlq module
+mlq -a                     # Lists available shortcuts
+mlq -b R/4.4.1-foss-2022b  # Build a shortcut for R/4.4.1-foss-2022b
+mlq R/4.4.1-foss-2022b     # Loads the R shortcut
+mlq miniconda              # Unloads the mlq and shortcut modules and performs 'ml miniconda'
+```
 
 # Installation and Use
 
@@ -14,18 +23,9 @@ There are three main ways to use `mlq`:
 
 After installation, type `mlq` or `mlsq` for preliminary help and you are on your way!
 
-<b>Module consistency checker</b> : Loading `mlq` also loads a function called `mlq_check` which checks for version consistency among a given set of modules and their dependencies. To use it, do:
-```
-# No arguments: checks the loaded module environment
-mlq_check
-
-# Specified set of modules (be sure to specify precise versions):
-mlq_check <mod1/v1> <mod2/v2> ...
-  ```
-
 <b>Sharing shortcuts</b> : Shortcuts may be saved for global sharing with other users through a directory called `mlq_prebuilds` located in the same place as `mlq.sh`, i.e.:
 ```
-# Easybuild
+# mlq module
 mkdir -p $EBROOTMLQ/mlq_prebuilds
 cp -R -L ~/.mlq/mlq/<shortcut_dir> $EBROOTMLQ/mlq_prebuilds
 
@@ -38,6 +38,17 @@ mkdir -p <path-to-mlq_simple.sh>/mlq_simple
 cp -R -L ~/.mlq/mlq_simple/<shortcut.lua> <path-to-mlq_simple.sh>/mlq_simple
 ```
 Shortcuts in these locations will be linked to the user cache automatically the first time a user loads the `mlq` function, or may be added thereafter with the `--prebuild` option. For `mlsq`, the global shared shortcuts are always visible.
+
+<b>Coordination between `mlq` and `module` functions</b> : The `mlq` function does not allow shortcut modules to coexist with ordinary `lmod` modules. When `mlq` loads a shortcut, a `module reset` is automatically performed to get rid of any loaded modules. Moreover, running `module` or `ml` while the `mlq` module is active automatically unloads `mlq` together with any loaded shortcut. Finally, typing `mlq <arg> ...` where `<arg>` is not a shortcut name falls back to `ml <arg> ...`; `module reset` is performed first, with the exception of `mlq list`, which allows you to see the `mlq` module and the actual shortcut modules (named `mlq-xxxx`).
+
+<b>Module consistency checker</b> : Loading `mlq` also loads a function called `mlq_check` which checks for version consistency among a given set of modules and their dependencies. To use it, do:
+```
+# No arguments: checks the loaded module environment
+mlq_check
+
+# Specified set of modules (be sure to specify precise versions):
+mlq_check <mod1/v1> <mod2/v2> ...
+  ```
 
 # How it works
 
