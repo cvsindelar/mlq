@@ -3,7 +3,7 @@ Module Loader-Quick (for lmod)
 
 # What it's for
 
-Under certain circumstances, loading of certain modules or module combinations within the [lmod](https://lmod.readthedocs.io/en/latest/) system can become tedious and slow. ``mlq`` can accelerate the loading of such environments from 20 or more seconds down to two or three seconds. ``mlq`` works as a layer on top of the `lmod` system and works seamlessly together with it.
+Under certain circumstances, loading of certain modules or module combinations within the [lmod](https://lmod.readthedocs.io/en/latest/) system can become tedious and slow. `mlq` is a bash function that can accelerate the loading of such environments from 20 or more seconds down to two or three seconds. ``mlq`` works as a layer on top of the `lmod` system and works seamlessly together with it.
 
 # Installation and Use
 
