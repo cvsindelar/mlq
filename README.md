@@ -65,7 +65,7 @@ mlq_check <mod1/v1> <mod2/v2> ...
     relegating costly dependency checks to the shortcut *building* step. During shortcut building, 
     a cache is built containing the original lua code for the specified modules as well as
     all the modules these depend on, minus the `depends_on()`
-   statements. For shortcut loading, `mlq` faithfully executes this code in same order that lmod would.
+   statements. For shortcut loading, `mlq` faithfully executes this code in same order that an ordinary `module load` would.
    
    Rapid dependency checking during shortcut loading is accomplished as follows:
    `mlq` detects if any of the involved module files changes, or even if a single modification
