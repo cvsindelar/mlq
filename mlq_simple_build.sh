@@ -59,7 +59,7 @@ printf '' > "${shortcut_name}".lua
 echo "$1" > "${shortcut_name}".shortcut_name
 echo 'Shortcut saved to: '"${HOME}"'/.mlq/mlq_simple/'"${shortcut_name}".lua
 echo 'Load with: '
-echo 'mlq '"$1"
+echo 'mlwq '"$1"
 echo '  or manually with:'
 echo 'ml reset; ml use '"${HOME}"'/.mlq/mlq_simple ; ml '"${shortcut_name}"
 
