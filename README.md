@@ -1,5 +1,5 @@
 # mlq
-Fast module loader for lmod
+Module Loader-Quick (for lmod)
 
 # What it's for
 
