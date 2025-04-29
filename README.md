@@ -5,7 +5,7 @@ Fast module loader for lmod
 
 Under certain circumstances, loading of certain modules or module combinations within the [lmod](https://lmod.readthedocs.io/en/latest/) system can become tedious and slow. ``mlq`` can accelerate the loading of such environments from 20 or more seconds down to two or three seconds. ``mlq`` works as a layer on top of the `lmod` system and works seamlessly together with it.
 
-# Installation
+# Installation and Use
 
 There are three main ways to use `mlq`:
 1. <b>EasyBuild</b> : If EasyBuild is available on your system, build with `eb <mlq-x.x.eb>`; `mlq` is then available with`ml mlq`.
@@ -14,8 +14,17 @@ There are three main ways to use `mlq`:
 
 After installation, type `mlq` or `mlsq` for preliminary help and you are on your way!
 
-Shortcuts may be saved for global sharing with other users through a directory called `mlq_prebuilds` located in the same place as `mlq.sh`, i.e.:
+<b>Module consistency checker</b> : Loading `mlq` also loads a function called `mlq_check` which checks for version consistency among a given set of modules and their dependencies. To use it, do:
+```
+# No arguments: checks the loaded module environment
+mlq_check
+
+# Specified set of modules (be sure to specify precise versions):
+mlq_check <mod1/v1> <mod2/v2> ...
   ```
+
+<b>Sharing shortcuts</b> : Shortcuts may be saved for global sharing with other users through a directory called `mlq_prebuilds` located in the same place as `mlq.sh`, i.e.:
+```
 # Easybuild
 mkdir -p $EBROOTMLQ/mlq_prebuilds
 cp -R -L ~/.mlq/mlq/<shortcut_dir> $EBROOTMLQ/mlq_prebuilds
