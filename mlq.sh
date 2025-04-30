@@ -369,6 +369,7 @@ EOF
             help=1
             
             echo 'mlq: Module loader-quick'
+            echo 'https://github.com/cvsindelar/mlq'
             echo ''
             
             if [[ ( `printf '%s' "$1" | awk '($1 ~ "--helpf" && "--helpfull" ~ $1) || $1 == "-hf"'` ) ]] ; then
