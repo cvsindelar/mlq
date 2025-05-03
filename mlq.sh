@@ -47,6 +47,7 @@ if [[ ! "${__mlq_activated}" ]]; then
   fi
 
   eval "$(echo "function __mlq_orig_module()"; declare -f module | tail -n +2)"
+  eval "$(echo "function __mlq_orig_ml()"; declare -f ml | tail -n +2)"
 fi
 
 # The user can specify --mlq_load to specify we are loading mlq with lmod
@@ -110,7 +111,17 @@ if [[ "$1" == "--mlq_load" && ! "${__mlq_activated}" ]]; then
         # __mlq_orig_module reset
         # module "${@:1}"
 	# declare -f module | tail -n +3|head -n -1
+
+	echo '[mlq] Executing: module '"${@:1}"
         __mlq_orig_module "${@:1}"
+    }
+
+    function ml() {
+        # __mlq_orig_ml "${@:1}"
+	# if [[ "$1 == reset" || "$1" == "r" ]] ; then
+	    
+	# echo '[mlq] Executing: ml '"${@:1}"
+        __mlq "${@:1}"
     }
     
     # Unsetting __mlqs_active (the active shortcut, if any) makes sure it will be 
@@ -127,9 +138,6 @@ if [[ "$1" == "--mlq_unload" ]]; then
     # echo Unloading mlq
     if [[ "${__mlq_activated}" ]] ; then
         unset __mlq_activated
-    # if [[ -f mlq ]] ; then
-    #   unset -f mlq
-
 
         if [[ `declare -f __mlq_orig_module | grep -v __mlq_orig_module | grep mlq` ]] ; then
             echo 'ERROR: the mlq environment has become really, really confused!'
@@ -140,12 +148,13 @@ if [[ "$1" == "--mlq_unload" ]]; then
                 
         # Restore the lmod 'ml' and 'module' commands
         # eval "$(echo "ml()"; declare -f __mlq_orig_ml | tail -n +2)"
+        eval "$(echo "ml()"; declare -f __mlq_orig_ml | tail -n +2)"
         eval "$(echo "module()"; declare -f __mlq_orig_module | tail -n +2)"
         unset -f __mlq_orig_ml
         unset -f __mlq_orig_module
     fi
     
-    unset -f mlq
+    unset -f __mlq
     unset -f __mlq_reset
     unset -f __mlq_shortcut_reset
 
@@ -297,21 +306,21 @@ function __mlq_shortcut_reset() {
 ###########################################
 ###########################################
 ###########################################
-# The mlq function
+# The __mlq function
 ###########################################
 ###########################################
 ###########################################
 
-# Enable autocompletion for mlq the same as 'module':
+# Enable autocompletion for __mlq the same as 'module':
 # t=(`complete -p ml`)
-# complete -F "${t[2]}" mlq
-if [ "$(type -t _ml)" = 'function' ]; then
-    complete -F _ml mlq
-fi
+# complete -F "${t[2]}" __mlq
+# if [ "$(type -t _ml)" = 'function' ]; then
+#     complete -F _ml __mlq
+# fi
 
 # mkdir -p "${__mlq_prebuilds_dir}"
 
-function mlq() {
+function __mlq() {
     local mlq_dir
     local mlq_custom_dir
     mlq_dir="${HOME}"/.mlq/mlq
@@ -416,36 +425,36 @@ EOF
             
             if [[ ( `printf '%s' "$1" | awk '($1 ~ "--helpf" && "--helpfull" ~ $1) || $1 == "-hf"'` ) ]] ; then
                 echo ' Usage: '
-                echo '  mlq <shortcut name> | <module>           Activate shortcut if it exists;'
+                echo '  ml <shortcut name> | <module>           Activate shortcut if it exists;'
                 echo '                                            otherwise load a module'
                 echo ''
-                echo '  mlq [options] sub-command [args ...]     Runs the corresponding '"'"ml"'"' command'
-                echo '  mlq <module 1> <module 2> [...]          Ordinary multiple module loading'
+                echo '  ml [options] sub-command [args ...]     Runs the corresponding '"'"ml"'"' command'
+                echo '  ml <module 1> <module 2> [...]          Ordinary multiple module loading'
                 echo ''
-                echo '  mlq --build|-b <module> | [<shortcut name> <module1> [<module2> ...]]'
+                echo '  ml --build|-b <module> | [<shortcut name> <module1> [<module2> ...]]'
                 echo '                                           Build shortcut; If only a module is '
                 echo '                                           given, the shortcut will be named'
                 echo '                                           after the module'
                 echo '                                           These will go in your shortcut library at:'
                 echo '                                             '"'""${HOME}/.mlq/mlq""'"
-                echo '  mlq --unsafe_build|-ub <module> | [<shortcut name> <module1> [<module2> ...]]'
+                echo '  ml --unsafe_build|-ub <module> | [<shortcut name> <module1> [<module2> ...]]'
                 echo '                                           Same as --build but without'
                 echo '                                           strict checking'
                 echo ''
-                echo '  mlq --list|-l                            List modulefiles for the loaded'
+                echo '  ml --list|-l                            List modulefiles for the loaded'
                 echo '                                            shortcut (if any)'
-                echo '  mlq --avail|-a                           List all available shortcuts'
+                echo '  ml --avail|-a                           List all available shortcuts'
                 echo '                                            (including generic ones)'
-                echo '  mlq --delete|-d <shortcut_name>          Delete shortcut'
-                echo '  mlq --reset|-r|reset                     Same as '"'"'module reset'"'"
-                echo '  mlq --nuke                               Delete all shortcuts'
-                echo '  mlq --prebuild [<dir>]                   Install links to pre-built shortcuts'
+                echo '  ml --delete|-d <shortcut_name>          Delete shortcut'
+                echo '  ml --reset|-r|reset                     Same as '"'"'module reset'"'"
+                echo '  ml --nuke                               Delete all shortcuts'
+                echo '  ml --prebuild [<dir>]                   Install links to pre-built shortcuts'
                 echo '                                            If not specified, <dir> defaults to '
                 echo '                                            pre-built system shortcuts in:'
                 echo '                                            '"${__mlq_prebuilds_dir}"
-                echo '  mlq --help|-h                            Short help message with examples'
-                echo '  mlq --helpfull|-hf                       Print this help message'
-                echo '  mlq --helpnotes|-hn                      Print extra notes on mlq'
+                echo '  ml --help|-h                            Short help message with examples'
+                echo '  ml --helpfull|-hf                       Print this help message'
+                echo '  ml --helpnotes|-hn                      Print extra notes on mlq'
                 echo ''
                 echo 'Use '"'"'--helpnotes'"'"'|'"'"'-hn'"'"' for additional guidance and notes on how mlq works.'
             elif [[ ( `printf '%s' "$1" | awk '($1 ~ "--helpn" && "--helpnotes" ~ $1) || $1 == "-hn"'` ) ]] ; then
@@ -491,9 +500,9 @@ EOF
                 echo ''
             else
                 echo ' Usage:'
-                echo '  mlq [ arguments for ml... ]'
+                echo '  ml [ arguments for ml... ]'
                 echo '              or'
-                echo '  mlq [ shortcut arguments... ]'
+                echo '  ml [ shortcut arguments... ]'
                 echo ''
                 echo ' HANDY TIPS:'
                 echo '  - tab autocompletion works for '"'"mlq"'"' exactly the same as '"'"ml"'"
@@ -501,23 +510,23 @@ EOF
                 echo '  - mlq shortcuts are modules, but work by themselves, not with other modules'
                 echo ''
                 echo ' TLDR examples:'
-                echo '  mlq                                      Lists any loaded shortcut;'
+                echo '  ml                                      Lists any loaded shortcut;'
                 echo '                                            or, lists available custom-named shortcuts'
-                echo '  mlq -a                                   Lists all available shortcuts'
-                echo '  mlq -b SciPy-bundle/2023.02-gfbf-2022b   Builds '"'"'generic'"'"' shortcut for SciPy-bundle'
-                echo '  mlq SciPy-bundle/2023.02-gfbf-2022b      Loads the above shortcut'
-                echo '  mlq -r                                   Deactivates the shortcut'
-                echo '  mlq -d SciPy-bundle/2023.02-gfbf-2022b   Deletes the above shortcut'
-                echo '  mlq SciPy-bundle/2023.02-gfbf-2022b      If no shortcut exists, then do '
+                echo '  ml -a                                   Lists all available shortcuts'
+                echo '  ml -b SciPy-bundle/2023.02-gfbf-2022b   Builds '"'"'generic'"'"' shortcut for SciPy-bundle'
+                echo '  ml SciPy-bundle/2023.02-gfbf-2022b      Loads the above shortcut'
+                echo '  ml -r                                   Deactivates the shortcut'
+                echo '  ml -d SciPy-bundle/2023.02-gfbf-2022b   Deletes the above shortcut'
+                echo '  ml SciPy-bundle/2023.02-gfbf-2022b      If no shortcut exists, then do '
                 echo '                                            '"'"'ml SciPy-bundle/2023.02-gfbf-2022b'"'"
                 echo ''
-                echo '  mlq -b rel5 RELION/5.0.0-foss-2022b-CUDA-12.0.0 IMOD/4.12.62_RHEL8-64_CUDA12.0 Emacs/28.2-GCCcore-12.2.0'
+                echo '  ml -b rel5 RELION/5.0.0-foss-2022b-CUDA-12.0.0 IMOD/4.12.62_RHEL8-64_CUDA12.0 Emacs/28.2-GCCcore-12.2.0'
                 echo '                                           Builds a custom-named 3-module shortcut, '"'"'rel5'"'"
                 echo ''
-                echo '  mlq list ; mlq purge; # etc              Runs the corresponding '"'"ml"'"' commands, i.e.:'
+                echo '  ml list ; ml purge; # etc              Runs the corresponding '"'"ml"'"' commands, i.e.:'
                 echo '                                            ml list ; ml purge # etc'
                 echo ''
-                echo '  function rel5() { mlq rel5 ; }           Bash function definition can be '
+                echo '  function rel5() { ml rel5 ; }           Bash function definition can be '
                 echo '                                           pasted into your .bashrc'            
                 echo ''
                 echo 'Use '"'"'--helpfull'"'"'|'"'"'-hf'"'"' for full instructions.'
@@ -553,6 +562,8 @@ EOF
                 echo 'Use '"'"'mlq -r'"'"' (or '"'"'mlq reset'"'"' / '"'"'mlq purge'"'"') to turn off this shortcut.'
                 echo ''
             else
+		echo '[mlq]'
+		# __mlq_orig_ml
                 echo 'No module shortcut is currently active.'
                 echo ''
                 echo 'Custom-named module shortcuts:'
@@ -1481,8 +1492,8 @@ EOF
             __mlq_reset
 
             echo ''
-            echo 'Shortcut '"'""${shortcut_name}""'"' is now available. To use, type:'
-            echo 'mlq '"${shortcut_name}"
+            echo 'Shortcut '"'""${shortcut_name}""'"' is now available.'
+            # echo 'mlq '"${shortcut_name}"
             echo ''
 
             # Below, we break out of while statement;
@@ -1528,7 +1539,7 @@ EOF
             local spec
             spec=`awk '{printf("\n"); for(i=1; i <= NF-1; ++i) printf("%s, ", $i); printf($i)}' "${quikmod_lua%.*}".spec`
 
-            printf "%s" "Loading shortcut ${shortcut_name} with included modules:"
+            printf "%s" "[mlq] Loading shortcut ${shortcut_name} with included modules:"
             printf "${spec}"
             printf '..'
             
@@ -1556,8 +1567,8 @@ EOF
                 export MODULEPATH="${build_modpath}"
             fi
 
-            echo 'Executing: '"'"'ml '"${module_spec[@]}""'"
-            ml ${module_spec[@]}
+            # echo 'Executing: '"'"'ml '"${module_spec[@]}""'"
+            __mlq_orig_ml ${module_spec[@]}
 	    
             # # 'list' is handled specially so it can be done without unloading mlq;
             # #  this allows the user to see the true module environment when mlq is active
