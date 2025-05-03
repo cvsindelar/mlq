@@ -39,12 +39,20 @@ fi
 #  we will destroy the saved original version of the 'module' function!
 
 if [[ ! "${__mlq_activated}" ]]; then
-    eval "$(echo "__mlq_orig_module()"; declare -f module | tail -n +2)"
+  if [[ `declare -f module | grep mlq` ]] ; then
+      echo 'ERROR: the mlq environment has become confused!'
+      echo 'To restore normal module-loading behavior, you may need to'
+      echo 'log out and log in again!'
+      return
+  fi
+
+  eval "$(echo "function __mlq_orig_module()"; declare -f module | tail -n +2)"
 fi
 
 # The user can specify --mlq_load to specify we are loading mlq with lmod
 #  ('mlq' module), giving the specific version as an argument
 if [[ "$1" == "--mlq_load" && ! "${__mlq_activated}" ]]; then
+# if [[ "$1" == "--mlq_load" && ! -f mlq ]]; then
 
     # Get rid of all other loaded modules
     # module purge
@@ -87,10 +95,22 @@ if [[ "$1" == "--mlq_load" && ! "${__mlq_activated}" ]]; then
 
     # Add a hook to the 'module' command, so that it unloads mlq and any shortcut
     #  before proceeding. This avoids mixing modules with shortcuts.
+
+    if [[ `declare -f __mlq_orig_module | grep -v __mlq_orig_module | grep mlq` ]] ; then
+	echo 'ERROR: the mlq environment has become very, very, very! confused!'
+	echo 'To restore normal module-loading behavior, you may need to'
+	echo 'log out and log in again!'
+	return
+    fi
+
     function module() {
-        echo 'Unloading the mlq shortcut environment'
-        __mlq_orig_module reset
-        module "${@:1}"
+	if [[ "$1" == 'load' ]] ; then
+	    __mlq_shortcut_reset
+	fi
+        # __mlq_orig_module reset
+        # module "${@:1}"
+	# declare -f module | tail -n +3|head -n -1
+        __mlq_orig_module "${@:1}"
     }
     
     # Unsetting __mlqs_active (the active shortcut, if any) makes sure it will be 
@@ -107,7 +127,17 @@ if [[ "$1" == "--mlq_unload" ]]; then
     # echo Unloading mlq
     if [[ "${__mlq_activated}" ]] ; then
         unset __mlq_activated
+    # if [[ -f mlq ]] ; then
+    #   unset -f mlq
 
+
+        if [[ `declare -f __mlq_orig_module | grep -v __mlq_orig_module | grep mlq` ]] ; then
+            echo 'ERROR: the mlq environment has become really, really confused!'
+            echo 'To restore normal module-loading behavior, you may need to'
+            echo 'log out and log in again!'
+            return
+        fi
+                
         # Restore the lmod 'ml' and 'module' commands
         # eval "$(echo "ml()"; declare -f __mlq_orig_ml | tail -n +2)"
         eval "$(echo "module()"; declare -f __mlq_orig_module | tail -n +2)"
@@ -118,6 +148,8 @@ if [[ "$1" == "--mlq_unload" ]]; then
     unset -f mlq
     unset -f __mlq_reset
     unset -f __mlq_shortcut_reset
+
+    unset __mlq_skip_auto_prebuild
 
     unset __mlq_version
     unset __mlq_path
@@ -160,7 +192,8 @@ __mlq_prebuilds_dir="${__mlq_base_dir}/mlq_prebuilds"
 ###########################################
 
 # Only do this step if there are no shortcuts in the mlq_prebuilds directory
-if [ -z "$( /bin/ls -A ${HOME}/.mlq/mlq 2> /dev/null )" ] ; then
+# if [ -z "$( /bin/ls -A ${HOME}/.mlq/mlq 2> /dev/null )" ] ; then
+if [[ ! ${__mlq_skip_auto_prebuild} && -z "$( /bin/ls -A ${HOME}/.mlq/mlq 2> /dev/null )" ]] ; then
     # Source: https://patorjk.com/software/taag/#p=display&f=Diet%20Cola&t=mlq
 
     # Welcome message
@@ -206,6 +239,11 @@ EOF
     fi
 fi
 
+# By default, the only time prebuilds are automatically loaded
+#  is when mlq.sh is first sourced. The below variable guides
+#  this behavior
+__mlq_skip_auto_prebuild=1
+
 ###########################################
 ###########################################
 ###########################################
@@ -220,8 +258,14 @@ function __mlq_reset() {
     #  eliminates all __mlq variables
     local tmp_path="${__mlq_path}"
     local tmp_version="${__mlq_version}"
+    local tmp_auto_prebuild="${__mlq_skip_auto_prebuild}"
     
     __mlq_orig_module reset >& /dev/null
+    
+    # By default, the only time prebuilds are automatically loaded
+    #  is when mlq.sh is first sourced. The below variable guides
+    #  this behavior
+    __mlq_skip_auto_prebuild="${tmp_auto_prebuild}"
     
     if [[ "${tmp_version}" ]] ; then
         # Keep mlq around; the user can get rid of it by doing 'mlq reset'
@@ -239,7 +283,7 @@ function __mlq_shortcut_reset() {
         echo "${__mlqs_active[@]}" | awk '{for(ind=1; ind<=NF;++ind) {printf("'\'%s\'' ", substr($ind,5,length($ind)-4));} printf("...")}'
 
         __mlq_orig_module unload ${__mlqs_active[@]} #  > /dev/null 2>&1
-        
+	
         local mlq_path
         for mod in ${__mlqs_active[@]} ; do
             mlq_path=`__mlq_orig_module -t --redirect --location show "${mod}"`
@@ -288,30 +332,28 @@ function mlq() {
     #  anyway, to be safe)
     ###########################################
 
-    if [[ ! "${__mlqs_active}" || ! "${__mlq_version}" ]] ; then
-        local __mlqs_active_candidates
-        local mod
-        local mod_file
+    local __mlqs_active_candidates
+    local mod
+    local mod_file
 
-        __mlqs_active=
-        mlqs_active_candidates=(`__mlq_orig_module -t --redirect list|grep '^mlq[-]'`)
-        for mod in ${mlqs_active_candidates[@]} ; do
-            mod_file=`__mlq_orig_module --redirect --location show "${mod}"`
+    __mlqs_active=
+    mlqs_active_candidates=(`__mlq_orig_module -t --redirect list|grep '^mlq[-]'`)
+    for mod in ${mlqs_active_candidates[@]} ; do
+        mod_file=`__mlq_orig_module --redirect --location show "${mod}"`
 
-            # Screen out 'imposter' modules that start with 'mlq-' but are not shortcuts
-            is_qmod=`echo "${mod_file}" | \
+        # Screen out 'imposter' modules that start with 'mlq-' but are not shortcuts
+        is_qmod=`echo "${mod_file}" | \
                       awk -v qhome="${HOME}"/.mlq/mlq \
                       '{ if(substr($1,1,length(qhome)) == qhome) print(1); }'`
-            
-            if [[ "${is_qmod}"  ]] ; then
-                if [[ ! "${__mlqs_active}" ]] ; then
-                    __mlqs_active=("${mod}")
-                else
-                    __mlqs_active=("${__mlqs_active}" "${mod}")
-                fi
+        
+        if [[ "${is_qmod}"  ]] ; then
+            if [[ ! "${__mlqs_active}" ]] ; then
+                __mlqs_active=("${mod}")
+            else
+                __mlqs_active=("${__mlqs_active}" "${mod}")
             fi
-        done
-    fi
+        fi
+    done
     
     if [[ ! "${__mlqs_active}" ]] ; then
         __mlqs_active='none'
@@ -496,8 +538,8 @@ EOF
                     echo '###########################################'
                     echo '###########################################'
                     echo '###########################################'
-                    echo 'WARNING: additional modules are loaded on top of the shortcut' `echo "${__mlqs_active[@]}" | awk '{printf("'\'%s\'' ... ", substr($1,5,length($1)-4))}'`
-                    echo ' (type '"'"'module list'"'"' to confirm)'
+                    echo 'WARNING: the mlq environment appears to be corrupted!'
+		    # echo 'additional modules are loaded on top of the shortcut' `echo "${__mlqs_active[@]}" | awk '{printf("'\'%s\'' ... ", substr($1,5,length($1)-4))}'`
                     echo 'Results may not be predictable; recommend to do '"'"mlq reset"'"' before proceeding.'
                     echo '###########################################'
                     echo '###########################################'
@@ -1514,22 +1556,25 @@ EOF
                 export MODULEPATH="${build_modpath}"
             fi
 
-            # 'list' is handled specially so it can be done without unloading mlq;
-            #  this allows the user to see the true module environment when mlq is active
-            if [[ "${module_spec[0]}" == 'list' || "${module_spec[0]}" == 'reset' || \
-                      "${module_spec[0]}" == 'purge' ]] ; then
-                __mlq_orig_module ${module_spec[@]}
-            else
-                # Don't allow shortcuts if the user is trying to do ordinary module functions
-                # This is automatically handled by invoking ml(), which calls module(),
-                #  which will have a hook installed when mlq is a module.
-                # echo 'Unloading mlq'
-                # __mlq_orig_module reset
-                # __mlq_shortcut_reset
-                
-                echo 'Executing: '"'"'ml '"${module_spec[@]}""'"
-                ml ${module_spec[@]}
-            fi
+            echo 'Executing: '"'"'ml '"${module_spec[@]}""'"
+            ml ${module_spec[@]}
+	    
+            # # 'list' is handled specially so it can be done without unloading mlq;
+            # #  this allows the user to see the true module environment when mlq is active
+            # if [[ "${module_spec[0]}" == 'list' || "${module_spec[0]}" == 'reset' || \
+            #           "${module_spec[0]}" == 'purge' ]] ; then
+            #     __mlq_orig_module ${module_spec[@]}
+            # else
+            #     # Don't allow shortcuts if the user is trying to do ordinary module functions
+            #     # This is automatically handled by invoking ml(), which calls module(),
+            #     #  which will have a hook installed when mlq is a module.
+            #     # echo 'Unloading mlq'
+            #     # __mlq_orig_module reset
+            #     # __mlq_shortcut_reset
+            #     
+            #     echo 'Executing: '"'"'ml '"${module_spec[@]}""'"
+            #     ml ${module_spec[@]}
+            # fi
         fi
     fi
 }
