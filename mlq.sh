@@ -221,9 +221,9 @@ EOF
     echo ''
 
     if [[ $n_argin -lt 1 ]]; then
-        echo 'Use this function for quick module loading with the lmod system'
+        echo 'Use mlq for quick module loading with the lmod system'
         echo ''
-        echo 'Use '"'"'mlq --help'"'"' for examples and instructions'
+        echo 'Use '"'"'ml --help'"'"' for examples and instructions'
         echo ''
     fi
 
@@ -243,7 +243,7 @@ EOF
         
         echo ' done.'
         echo ''
-        echo 'Use '"'"'mlq --avail'"'"' to list all available shortcuts'
+        echo 'Use '"'"'ml --avail'"'"' to list all available shortcuts'
         echo ''
     fi
 fi
@@ -277,7 +277,7 @@ function __mlq_reset() {
     __mlq_skip_auto_prebuild="${tmp_auto_prebuild}"
     
     if [[ "${tmp_version}" ]] ; then
-        # Keep mlq around; the user can get rid of it by doing 'mlq reset'
+        # Keep mlq around; the user can get rid of it by doing 'ml reset'
         module use "${tmp_path}"
         module load "${tmp_version}"
     fi
@@ -401,13 +401,13 @@ EOF
             if [[ $n_argin -lt 1 ]]; then
                 echo 'Use this function for quick module loading with the lmod system'
                 echo ''
-                echo 'Use '"'"'mlq --help'"'"' for examples and instructions'
+                echo 'Use '"'"'ml --help'"'"' for examples and instructions'
                 echo ''
             fi
             
             # If prebuilt shortcuts available, let the user know
             if [ ! -z "$( /bin/ls -A ${__mlq_prebuilds_dir} )" ] ; then
-                echo 'Use '"'"'mlq --prebuild'"'"' to install curated, pre-built shortcuts'
+                echo 'Use '"'"'ml --prebuild'"'"' to install curated, pre-built shortcuts'
                 echo '   These will go in your shortcut library at: '"'""${HOME}/.mlq/mlq""'"
                 echo ''
             fi            
@@ -559,11 +559,11 @@ EOF
                 # Print the current shortcut name (take off the leading 'mlq-' from the folder name)
                 echo 'Current shortcut:' `echo "${__mlqs_active[@]}" | awk '{print substr($1,5,length($1)-4)}'`
                 echo ''
-                echo 'Use '"'"'mlq -r'"'"' (or '"'"'mlq reset'"'"' / '"'"'mlq purge'"'"') to turn off this shortcut.'
+                echo 'Use '"'"'ml -r'"'"' (or '"'"'ml reset'"'"' / '"'"'ml purge'"'"') to turn off this shortcut.'
                 echo ''
             else
 		echo '[mlq]'
-		# __mlq_orig_ml
+		__mlq_orig_ml
                 echo 'No module shortcut is currently active.'
                 echo ''
                 echo 'Custom-named module shortcuts:'
@@ -578,10 +578,10 @@ EOF
                 # We use awk to strip out the last part of the module printout, since it doesn't apply.
                 __mlq_orig_module --redirect --nx --ignore_cache avail | awk 'BEGIN {no_print=1} $0 == "If the avail list is too long consider trying:" {no_print=1} !no_print {print} $0 ~ "mlq_custom" {no_print=0}'
 
-                echo 'Use '"'"'mlq --avail'"'"' to list all available shortcuts'
+                echo 'Use '"'"'ml --avail'"'"' to list all available shortcuts'
                 echo '   (may include generic/prebuilt ones)'
                 echo ''
-                echo 'Use '"'"'mlq --help'"'"' for examples and instructions'
+                echo 'Use '"'"'ml --help'"'"' for examples and instructions'
                 echo ''
             fi
 
@@ -1552,7 +1552,7 @@ EOF
 
             if [[ $? == 0 ]] ; then
                 __mlqs_active="${shortcut_name_full}"
-                echo 'Use '"'"'mlq -r'"'"' (or '"'"'module reset'"'"' / '"'"'module purge'"'"') to turn off this shortcut.'
+                echo 'Use '"'"'ml -r'"'"' (or '"'"'module reset'"'"' / '"'"'module purge'"'"') to turn off this shortcut.'
             else
                 echo 'An error occurred loading the shortcut. Falling back to ordinary module loading...'
                 fall_back=1
