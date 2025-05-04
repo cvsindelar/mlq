@@ -994,26 +994,15 @@ EOF
             if [ "$(eval ${build_lua_record} | cmp ${quikmod_lua%.*}.lua_record)" ] ; then
                 echo 'The module environment seems to have changed.'
             
+                # If the user requested a load but the shortcut is out of date, try to rebuild the shortcut.
+                # To do this, we first need to:
+                #  - Obtain the original shortcut module list as module_spec; 
+                #  - We also restore the modulepath from the shortcut in case a custom path was present
+                #    during the original shortcut build (i.e. if the user had previously done 'module use')
                 if [[ "${request_type}" == 'load' ]] ; then
-                    # If the user requested a load but the shortcut is out of date, try to rebuild the shortcut.
-                    # To do this, we first need to:
-                    #  - Obtain the original shortcut module list as module_spec; 
-                    #  - We also restore the modulepath from the shortcut in case a custom path was present
-                    #    during the original shortcut build (i.e. if the user had previously done 'module use')
-                    if [[ "${request_type}" == 'load' ]] ; then
-                        module_spec=(`cat "${quikmod_lua%.*}".spec`)
-                        build_modpath=(`cat "${quikmod_lua%.*}".modpath`)
-                        rebuild=1
-                        
-                        # echo 'Falling back to ordinary module loads'
-                        # echo 'To rebuild, please use:'
-                        # if [[ "${shortcut_name}" == "${module_spec[@]}" ]] ; then
-                        #     echo 'mlq -b '"${module_spec[@]}"
-                        # else
-                        #     echo 'mlq -b '"${shortcut_name}"' '"${module_spec[@]}"
-                        # fi
-                        # fall_back=1
-                    fi
+                    module_spec=(`cat "${quikmod_lua%.*}".spec`)
+                    build_modpath=(`cat "${quikmod_lua%.*}".modpath`)
+                    rebuild=1
                 fi
             else
                 if [[ "${request_type}" == 'build' ]] ; then
