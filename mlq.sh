@@ -41,7 +41,8 @@ fi
 # Note: this can only be done once per load of the mlq module, or 
 #  we will destroy the saved original version of the functions!
 
-if [[ ! "${__mlq_activated}" ]]; then
+# If __mlq function is not defined, this is the first time mlq has been loaded.
+if [[ ! `type -t __mlq 2> /dev/null` == 'function' ]]; then
   if [[ `declare -f module | grep mlq` ]] ; then
       echo 'ERROR: the mlq environment has become confused!'
       echo 'To restore normal module-loading behavior, you may need to'
@@ -55,8 +56,9 @@ fi
 
 # The user can specify --mlq_load to specify we are loading mlq with lmod
 #  ('mlq' module), giving the specific version as an argument
-if [[ "$1" == "--mlq_load" && ! "${__mlq_activated}" ]]; then
-# if [[ "$1" == "--mlq_load" && ! -f mlq ]]; then
+# Note, we also test if the __mlq function is defined, because we don't need
+#  to load it twice
+if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; then
 
     # Get rid of all other loaded modules
     # module purge
@@ -135,10 +137,11 @@ fi
 
 # If requested, remove all traces of mlq during the mlq module unload
 if [[ "$1" == "--mlq_unload" ]]; then
-    # echo Unloading mlq
-    if [[ "${__mlq_activated}" ]] ; then
-        unset __mlq_activated
 
+    # Below, restore original ml and module commands. This script is structured
+    #  so that if __mlq function exists, then __mlq_orig_ml and __mlq_orig_module
+    #  also exist
+    if [[ `type -t __mlq 2> /dev/null` == 'function' ]] ; then
         if [[ `declare -f __mlq_orig_module | grep -v __mlq_orig_module | grep mlq` ]] ; then
             echo 'ERROR: the mlq environment has become really, really confused!'
             echo 'To restore normal module-loading behavior, you may need to'
@@ -153,7 +156,7 @@ if [[ "$1" == "--mlq_unload" ]]; then
         unset -f __mlq_orig_ml
         unset -f __mlq_orig_module
     fi
-    
+
     unset -f __mlq
     unset -f __mlq_reset
     unset -f __mlq_shortcut_reset
@@ -176,8 +179,6 @@ if [[ "$1" == "--mlq_unload" ]]; then
 
     return
 fi
-
-__mlq_activated=1
 
 # Location of the script and its default shortcut library
 __mlq_base_dir="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
@@ -555,13 +556,13 @@ EOF
                 fi
 
                 # Print the current shortcut name (take off the leading 'mlq-' from the folder name)
-                echo 'Current shortcut:' `echo "${__mlqs_active[@]}" | awk '{print substr($1,5,length($1)-4)}'`
+                echo '[mlq] Current shortcut:' `echo "${__mlqs_active[@]}" | awk '{print substr($1,5,length($1)-4)}'`
                 echo ''
                 echo 'Use '"'"'ml -r'"'"' (or '"'"'ml reset'"'"' / '"'"'ml purge'"'"') to turn off this shortcut.'
                 echo ''
             else
 		echo '[mlq]'
-		__mlq_orig_ml
+		__mlq_orig_module list
                 echo 'No module shortcut is currently active.'
                 echo ''
                 echo 'Custom-named module shortcuts:'
@@ -1290,6 +1291,18 @@ EOF
             #  in multi-column format, which depends on the user's window width!
             __mlq_orig_module --redirect --ignore_cache --width=1 save "${collection_name}" >& /dev/null
 
+	    # Below: the environment is no longer needed, so reset it.
+	    # Interestingly, ml --location show <mod> may give different results
+	    #  depending on whether <mod> is loaded or not; the unloaded case seems to
+	    #  be preferable (case in point: R modules with two conflicting R module dependencies)
+            __mlq_reset
+
+	    # However, the build modulepath may still be needed for safety checking
+	    #  below:
+            if [[ "${build_modpath}" ]] ; then
+		export MODULEPATH="${build_modpath}"
+            fi
+
             # lua script for processing lmod collection files
             # This obtains a list of lua modulefiles, from the saved module collection file,
             #  defining the modules to be used for a shortcut.
@@ -1391,7 +1404,7 @@ EOF
 
             # modfile_check=`__mlq_orig_module -I --redirect --location show "${module_spec[-1]}"`
             modfile_check=`__mlq_orig_module --redirect --location show "${module_spec[-1]}"`
-
+	    
             if [ ! $( echo "${modfile_check}" "${ordered_module_list[-1]}" | awk '{ if($1 == $2) {print 1} else {print 0}}' ) -ne 0 ] ; then
 
                 echo ''
@@ -1487,8 +1500,6 @@ EOF
                 touch "${lua_custom_placeholder}"
             fi
             
-            __mlq_reset
-
             echo ''
             echo 'Shortcut '"'""${shortcut_name}""'"' is now available.'
             # echo 'mlq '"${shortcut_name}"
