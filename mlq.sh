@@ -1,8 +1,11 @@
 # mlq: Module loader-quick
-# Please source this script to access the quik module-loading shortcut function 'mlq'
+# Please source this script to access the quik module-loading shortcut function '__mlq'
 #  as well as the module consistency checker 'mlq_check'
 #
 # Use 'source mlq.sh --mlq_unload' to remove all traces of these functions
+#
+# Use the included Easybuild (.eb) file to incorporate mlq into a module;
+#  or edit and use the included modulefile (.lua) directly.
 
 ###########################################
 ###########################################
@@ -31,12 +34,12 @@ fi
 ###########################################
 ###########################################
 
-# Save the original 'module' function code as __mlq_orig_module
-# This is for restoring the 'module' function upon unloading mlq,
-#  since we will add a hook to it.
-# Note: we don't need to add a hook to 'ml', because it calls 'module'
-# Also note: this can only be done once per load of the mlq module, or 
-#  we will destroy the saved original version of the 'module' function!
+# Save the original 'module' functions code as __mlq_orig_module
+#  and __mlq_orig_ml
+# This is for restoring the 'module' functions upon unloading mlq,
+#  since we will add hooks to them.
+# Note: this can only be done once per load of the mlq module, or 
+#  we will destroy the saved original version of the functions!
 
 if [[ ! "${__mlq_activated}" ]]; then
   if [[ `declare -f module | grep mlq` ]] ; then
@@ -116,11 +119,8 @@ if [[ "$1" == "--mlq_load" && ! "${__mlq_activated}" ]]; then
         __mlq_orig_module "${@:1}"
     }
 
+    # Add a hook to the 'ml' command to call __mlq
     function ml() {
-        # __mlq_orig_ml "${@:1}"
-	# if [[ "$1 == reset" || "$1" == "r" ]] ; then
-	    
-	# echo '[mlq] Executing: ml '"${@:1}"
         __mlq "${@:1}"
     }
     
@@ -317,8 +317,6 @@ function __mlq_shortcut_reset() {
 # if [ "$(type -t _ml)" = 'function' ]; then
 #     complete -F _ml __mlq
 # fi
-
-# mkdir -p "${__mlq_prebuilds_dir}"
 
 function __mlq() {
     local mlq_dir
@@ -1568,24 +1566,7 @@ EOF
             fi
 
             # echo 'Executing: '"'"'ml '"${module_spec[@]}""'"
-            __mlq_orig_ml ${module_spec[@]}
-	    
-            # # 'list' is handled specially so it can be done without unloading mlq;
-            # #  this allows the user to see the true module environment when mlq is active
-            # if [[ "${module_spec[0]}" == 'list' || "${module_spec[0]}" == 'reset' || \
-            #           "${module_spec[0]}" == 'purge' ]] ; then
-            #     __mlq_orig_module ${module_spec[@]}
-            # else
-            #     # Don't allow shortcuts if the user is trying to do ordinary module functions
-            #     # This is automatically handled by invoking ml(), which calls module(),
-            #     #  which will have a hook installed when mlq is a module.
-            #     # echo 'Unloading mlq'
-            #     # __mlq_orig_module reset
-            #     # __mlq_shortcut_reset
-            #     
-            #     echo 'Executing: '"'"'ml '"${module_spec[@]}""'"
-            #     ml ${module_spec[@]}
-            # fi
+            __mlq_orig_ml ${module_spec[@]}	    
         fi
     fi
 }

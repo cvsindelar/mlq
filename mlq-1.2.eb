@@ -4,7 +4,7 @@ name = 'mlq'
 version = '1.2'
 
 homepage = 'https://github.com/cvsindelar/mlq'
-description = 'Defines the mlq Bash function by sourcing a script.'
+description = 'Module Loader-Quick (for lmod)'
 
 toolchain = SYSTEM
 
