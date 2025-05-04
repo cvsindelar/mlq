@@ -13,8 +13,6 @@ sources = ['v%(version)s.tar.gz']
 
 start_dir = 'mlq-%(version)s'
 
-# preinstall_cmd = 'mkdir -p %(installdir)s/functions && cp mlq.sh %(installdir)s/functions/'
-
 sanity_check_paths = {
     'files': ['mlq.sh'],
     'dirs': ['.'],
