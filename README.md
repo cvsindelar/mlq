@@ -11,7 +11,7 @@ ml mlq                    # Loads the mlq module
 ml -a                     # Lists available shortcuts
 ml -b R/4.4.1-foss-2022b  # Build a shortcut for R/4.4.1-foss-2022b
 ml R/4.4.1-foss-2022b     # Loads the R shortcut
-ml miniconda              # (if no 'miniconda' shortcut) Unloads the mlq and shortcut modules and performs 'ml miniconda'
+ml miniconda              # (if no 'miniconda' shortcut) uses lmod 'ml' to load the miniconda module
 ml -r                     # Unloads all modules- including shortcuts- except for mlq, which stays loaded
 ml reset                  # Unloads all modules as well as mlq
 ```
@@ -55,9 +55,9 @@ Shortcuts in these locations will be linked to the user cache automatically the 
 
 # Features
 
-**Automatic shortcut rebuilding** : When loading a shortcut, `mlq` detects if it has become out of date, and rebuilds it if possible; if not, `mlq` falls back to `ml` to load the original modules.
+**Automatic shortcut rebuilding** : When loading a shortcut, `mlq` detects if it has become out of date, and rebuilds it if possible; if not, `mlq` falls back to the `lmod` `ml` command to load the original modules.
 
-**Coordination between `mlq` and `module` functions** : The `mlq` function does not allow shortcut modules to coexist with ordinary `lmod` modules. When `mlq` loads a shortcut, a `module reset` is automatically performed to get rid of any loaded modules. Moreover, running `module` or `ml` while the `mlq` module is active automatically unloads `mlq` together with any loaded shortcut. Finally, typing `mlq <arg> ...` where `<arg>` is not a shortcut name falls back to `ml <arg> ...`; `module reset` is performed first, with the exception of `mlq list`, which allows you to see the `mlq` module and the actual shortcut modules (named `mlq-xxxx`).
+**Coordination between `mlq` and `module` functions** : `mlq` does not allow shortcut modules to coexist with ordinary `lmod` modules. When `mlq` loads a shortcut, a `module reset` is automatically performed to get rid of any loaded shortcut or other modules. `mlq` patches the `ml` command so it performs shortcut-related operations, but otherwise falls back to the original `lmod` `ml` function. However, the behavior of the `lmod` `module` command is not affected, so you can always load a module using ordinary `lmod` by doing `module load <mod>`.
 
 **Module consistency checker** : Loading `mlq` also loads a function called `mlq_check` which checks for version consistency among a given set of modules and their dependencies. To use it, do:
 ```
