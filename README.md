@@ -33,7 +33,7 @@ There are two ways to use `mlq`:
     ```
     `mlq` should then available with`ml mlq`, although you may need to [update your lmod spider cache](https://lmod.readthedocs.io/en/latest/130_spider_cache.html) first.
 
-2. **Simple version:** Use `source mlq_simple.sh` to enable the `mlsq` function with 10x fewer lines of code, but 90% functionality.
+2. **Simple version:** Use `source mlq_simple.sh` to enable the `mlsq` function with 10x fewer lines of code, but 90% functionality; the main purpose of this script (and accompanying `mlq_simple_build.sh`) is to succinctly demonstrate the underlying method used by `mlq` with just a few dozen lines of bash script.
 
 After installation, type `ml` (or `mlsq`) for preliminary help and you are on your way!
 
