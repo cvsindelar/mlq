@@ -73,8 +73,12 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
     # Make sure the mlq module can be found
     # module is-avail "$2"
 
-    # Check if the file exists and if the string ends with mlq/<version>.lua
-    if [[ ! -f "$3" || `echo $2 $3 | awk '{name=$1 ".lua"; if(index($2,name) != length($2) - length(name)+1) print 1; }'` ]]; then
+    # Get the path to the modulefile
+    #  (requires that the modulefile name ends with the right string, mlq/<version>.lua)
+    __mlq_path=`echo $2 $3 | awk '{name=$1 ".lua"; if(index($2,name) == length($2) - length(name)+1) print substr($2,length($2) - length(name)); }'`
+    
+    # Check if the file exists and if the module path was identified correctly
+    if [[ ! -f "$3" || ! "${__mlq_path}" ]]; then
         echo 'ERROR: mlq module '"'""$2""'"' not found.'
         echo $3
         echo 'Usage:'
@@ -88,11 +92,10 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
 
         # New way: path is given by the modulefile
         # Extract the path from the full filename
-        __mlq_path=`echo "$3"|awk '{n=sub("/mlq/[^/]+[.]lua$","",$0); if(!n) n=sub("/mlq[.]lua$","",$0); if(n) print}'`
+        # __mlq_path=`echo "$3"|awk '{n=sub("/mlq/[^/]+[.]lua$","",$0); if(!n) n=sub("/mlq[.]lua$","",$0); if(n) print}'`
         if [[ ! ${__mlq_path} ]] ; then
             echo 'ERROR: path to the mlq module cannot be determined!'
             echo '(this should not happen)'
-
             unset __mlq_path
             return
         fi
@@ -369,6 +372,15 @@ function __mlq() {
 
     ###########################################
     # Parse the arguments
+    # 
+    # Note, options to mlq 'ml' are of the form 'ml -h', 'ml -a', etc.
+    # This potentially interferes with the lmod 'ml -<mod>' behavior,
+    #  which unloads a module.
+    #
+    # So if the user tries to use 'ml' in this way to unload 
+    #  modules named 'h', 'hf', 'hn', 'hml', 'a', 'd', or 'r', this will get overridden by
+    #  the corresponding 'qml' operations. However, these are all non-destructive operations,
+    #  and the user can still do the unloading with 'module unload <mod>'.
     ###########################################
 
     ###########################################
@@ -378,7 +390,8 @@ function __mlq() {
     if [[ ( `printf '%s' "$1" | awk '($1 ~ "--h" && "--help" ~ $1) || \
                                      ($1 ~ "--h" && "--helpfull" ~ $1) || \
                                      ($1 ~ "--h" && "--helpnotes" ~ $1) || \
-                                     ($1 == "-h" || $1 == "-hf" || $1 == "-hn") || \
+                                     ($1 ~ "--help_m" && "--help_ml" ~ $1) || \
+                                     ($1 == "-h" || $1 == "-hf" || $1 == "-hn" || $1 == "-hml") || \
                                      $1 == "show-all-if-ambiguous" '` ) || ( "${n_argin}" -eq 0 )  ]] ; then
         # Welcome message
         if [ -z "$( /bin/ls -A ${HOME}/.mlq/mlq )" ] ; then
@@ -428,7 +441,8 @@ EOF
                 echo '                                            otherwise load a module'
                 echo ''
                 echo '  ml [options] sub-command [args ...]     Runs the corresponding '"'"ml"'"' command'
-                echo '  ml <module 1> <module 2> [...]          Ordinary multiple module loading'
+                echo '  module <args ...>                       Runs the '"'"'lmod'"'"' module command'
+		echo '                                           (bypasses shortcuts)'
                 echo ''
                 echo '  ml --build|-b <module> | [<shortcut name> <module1> [<module2> ...]]'
                 echo '                                           Build shortcut; If only a module is '
@@ -445,7 +459,9 @@ EOF
                 echo '  ml --avail|-a                           List all available shortcuts'
                 echo '                                            (including generic ones)'
                 echo '  ml --delete|-d <shortcut_name>          Delete shortcut'
-                echo '  ml --reset|-r|reset                     Same as '"'"'module reset'"'"
+                echo '  ml --reset|-r                           Unloads all modules and shortcuts'
+		echo '                                          Note: '"'"'module reset'"'"' or '"'"'ml reset'"'"' '
+		echo '                                           behave the same but also unload '"'"'mlq'"'"
                 echo '  ml --nuke                               Delete all shortcuts'
                 echo '  ml --prebuild [<dir>]                   Install links to pre-built shortcuts'
                 echo '                                            If not specified, <dir> defaults to '
@@ -453,6 +469,7 @@ EOF
                 echo '                                            '"${__mlq_prebuilds_dir}"
                 echo '  ml --help|-h                            Short help message with examples'
                 echo '  ml --helpfull|-hf                       Print this help message'
+                echo '  ml --help_ml|-hml                       Print help for '"'"'lmod'"'"' ml'
                 echo '  ml --helpnotes|-hn                      Print extra notes on mlq'
                 echo ''
                 echo 'Use '"'"'--helpnotes'"'"'|'"'"'-hn'"'"' for additional guidance and notes on how mlq works.'
@@ -497,9 +514,11 @@ EOF
                 echo '                   or'
                 echo '     cp -R -L ~/.mlq/mlq/* <your_new_prebuilds_dir>/'
                 echo ''
+            elif [[ ( `printf '%s' "$1" | awk '($1 ~ "--help_m" && "--help_ml" ~ $1) || $1 == "-hml"'` ) ]] ; then
+		__mlq_orig_ml -h
             else
                 echo ' Usage:'
-                echo '  ml [ arguments for ml... ]'
+                echo '  ml [ arguments for '"'"'lmod'"'"' ml... ]'
                 echo '              or'
                 echo '  ml [ shortcut arguments... ]'
                 echo ''
@@ -529,6 +548,7 @@ EOF
                 echo '                                           pasted into your .bashrc'            
                 echo ''
                 echo 'Use '"'"'--helpfull'"'"'|'"'"'-hf'"'"' for full instructions.'
+                echo 'Use '"'"'--help_ml'"'"'|'"'"'-hml'"'"' for help with '"'"'lmod'"'"' ml'
             fi
         fi
         

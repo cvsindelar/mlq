@@ -7,11 +7,11 @@ Under certain circumstances, loading of certain modules or module combinations w
 
 Example use cases:
 ```
-ml mlq                     # Loads the mlq module
-mlq -a                     # Lists available shortcuts
-mlq -b R/4.4.1-foss-2022b  # Build a shortcut for R/4.4.1-foss-2022b
-mlq R/4.4.1-foss-2022b     # Loads the R shortcut
-mlq miniconda              # (if no 'miniconda' shortcut) Unloads the mlq and shortcut modules and performs 'ml miniconda'
+ml mlq                    # Loads the mlq module
+ml -a                     # Lists available shortcuts
+ml -b R/4.4.1-foss-2022b  # Build a shortcut for R/4.4.1-foss-2022b
+ml R/4.4.1-foss-2022b     # Loads the R shortcut
+ml miniconda              # (if no 'miniconda' shortcut) Unloads the mlq and shortcut modules and performs 'ml miniconda'
 ```
 
 # Installation and Use
