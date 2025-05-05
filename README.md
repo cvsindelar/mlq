@@ -12,7 +12,7 @@ ml -a                     # Lists available shortcuts
 ml -b R/4.4.1-foss-2022b  # Build a shortcut for R/4.4.1-foss-2022b
 ml R/4.4.1-foss-2022b     # Loads the R shortcut
 ml miniconda              # (if no 'miniconda' shortcut) Unloads the mlq and shortcut modules and performs 'ml miniconda'
-ml -r                     # Unloads all modules including shortcuts (but keeps mlq loaded)
+ml -r                     # Unloads all modules- including shortcuts- except for mlq, which stays loaded
 ml reset                  # Unloads all modules as well as mlq
 ```
 
