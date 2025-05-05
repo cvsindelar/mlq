@@ -12,18 +12,32 @@ ml -a                     # Lists available shortcuts
 ml -b R/4.4.1-foss-2022b  # Build a shortcut for R/4.4.1-foss-2022b
 ml R/4.4.1-foss-2022b     # Loads the R shortcut
 ml miniconda              # (if no 'miniconda' shortcut) Unloads the mlq and shortcut modules and performs 'ml miniconda'
+ml -r                     # Unloads all modules including shortcuts (but keeps mlq loaded)
+ml reset                  # Unloads all modules as well as mlq
 ```
 
 # Installation and Use
 
-There are three main ways to use `mlq`:
-1. <b>EasyBuild</b> : If EasyBuild is available on your system, build with `eb <mlq-x.x.eb>`; `mlq` is then available with`ml mlq`.
-2. <b>Free-standing function</b> : You may also source `mlq.sh`, which defines the `mlq` function but without additional module functionality.
-3. <b>Simple version:</b> Use `source mlq_simple.sh` to enable the `mlsq` function with 10x fewer lines of code, but 90% functionality.
+There are two ways to use `mlq`:
+1. **As an lmod module**
 
-After installation, type `mlq` or `mlsq` for preliminary help and you are on your way!
+    <u>*EasyBuild*</u> : If [EasyBuild](https://www.google.com/url?sa=t&source=web&rct=j&opi=89978449&url=https://easybuild.io/&ved=2ahUKEwj5_N-z5YyNAxWyF1kFHczsKHQQFnoECAkQAQ&usg=AOvVaw2ZN6GWMilgwKsFcoVp0KX2) is available on your system, you can just build the mlq module with `eb <mlq-x.x.eb>`
 
-<b>Sharing shortcuts</b> : Shortcuts may be saved for global sharing with other users through a directory called `mlq_prebuilds` located in the same place as `mlq.sh`, i.e.:
+    *Manual installation* : Clone the `mlq` git project into a suitable directory `<path-to-mlq>`. Then install the included modulefile into lmod , i.e. `cd <path-to-lmod-base-dir>/modules; mkdir all/mlq tools/mlq; cp <path-to-mlq>/mlq/1.21.lua all/mlq; ln -s $PWD/all/mlq/* tools/mlq`. Finally, *edit the following line* in `<path-to-lmod-base-dir>/modules/all/mlq/1.21.lua` so that it points to the right place:
+
+    ```
+    # Unedited: 
+    # local root = "/vast/palmer/apps/avx2/software/mlq/1.21"
+    # Edited:
+    local root = "***<path-to-mlq>***/mlq/1.21"
+    ```
+    `mlq` should then available with`ml mlq`, although you may need to [update your lmod spider cache](https://lmod.readthedocs.io/en/latest/130_spider_cache.html) first.
+
+2. **Simple version:** Use `source mlq_simple.sh` to enable the `mlsq` function with 10x fewer lines of code, but 90% functionality.
+
+After installation, type `ml` (or `mlsq`) for preliminary help and you are on your way!
+
+**Sharing shortcuts** : Shortcuts may be saved for global sharing with other users through a directory called `mlq_prebuilds` located in the same place as `mlq.sh`, i.e.:
 ```
 # mlq module
 mkdir -p $EBROOTMLQ/mlq_prebuilds
@@ -41,11 +55,11 @@ Shortcuts in these locations will be linked to the user cache automatically the 
 
 # Features
 
-<b>Automatic shortcut rebuilding</b> : When loading a shortcut, `mlq` detects if it has become out of date, and rebuilds it if possible; if not, `mlq` falls back to `ml` to load the original modules.
+**Automatic shortcut rebuilding** : When loading a shortcut, `mlq` detects if it has become out of date, and rebuilds it if possible; if not, `mlq` falls back to `ml` to load the original modules.
 
-<b>Coordination between `mlq` and `module` functions</b> : The `mlq` function does not allow shortcut modules to coexist with ordinary `lmod` modules. When `mlq` loads a shortcut, a `module reset` is automatically performed to get rid of any loaded modules. Moreover, running `module` or `ml` while the `mlq` module is active automatically unloads `mlq` together with any loaded shortcut. Finally, typing `mlq <arg> ...` where `<arg>` is not a shortcut name falls back to `ml <arg> ...`; `module reset` is performed first, with the exception of `mlq list`, which allows you to see the `mlq` module and the actual shortcut modules (named `mlq-xxxx`).
+**Coordination between `mlq` and `module` functions** : The `mlq` function does not allow shortcut modules to coexist with ordinary `lmod` modules. When `mlq` loads a shortcut, a `module reset` is automatically performed to get rid of any loaded modules. Moreover, running `module` or `ml` while the `mlq` module is active automatically unloads `mlq` together with any loaded shortcut. Finally, typing `mlq <arg> ...` where `<arg>` is not a shortcut name falls back to `ml <arg> ...`; `module reset` is performed first, with the exception of `mlq list`, which allows you to see the `mlq` module and the actual shortcut modules (named `mlq-xxxx`).
 
-<b>Module consistency checker</b> : Loading `mlq` also loads a function called `mlq_check` which checks for version consistency among a given set of modules and their dependencies. To use it, do:
+**Module consistency checker** : Loading `mlq` also loads a function called `mlq_check` which checks for version consistency among a given set of modules and their dependencies. To use it, do:
 ```
 # No arguments: checks the loaded module environment
 mlq_check
