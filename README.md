@@ -70,7 +70,7 @@ mlq_check <mod1/v1> <mod2/v2> ...
 
 # How it works
 
-`mlq` works with lmod module system so you can create and use custom-built
+`mlq` works with the `lmod` module system so you can create and use custom-built
    'shortcut' modules to accelerate the loading of large and complex
    module environments.
 
