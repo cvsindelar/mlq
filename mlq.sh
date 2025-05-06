@@ -75,8 +75,8 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
 
     # Get the path to the modulefile
     #  (requires that the modulefile name ends with the right string, mlq/<version>.lua)
-    __mlq_path=`echo $2 $3 | awk '{name=$1 ".lua"; if(index($2,name) == length($2) - length(name)+1) print substr($2,length($2) - length(name)); }'`
-    
+    __mlq_path=`echo $2 $3 | awk '{name=$1 ".lua"; if(index($2,name) == length($2) - length(name)+1) print substr($2,1,length($2) - length(name) - 1); }'`
+
     # Check if the file exists and if the module path was identified correctly
     if [[ ! -f "$3" || ! "${__mlq_path}" ]]; then
         echo 'ERROR: mlq module '"'""$2""'"' not found.'
@@ -303,6 +303,8 @@ function __mlq_shortcut_reset() {
             mlq_path="${mlq_path%/*}"
             __mlq_orig_module unuse "${mlq_path}"
         done
+	unset __mlqs_active
+	
         echo ' done.'
     fi
 }
@@ -577,7 +579,7 @@ EOF
                 # Print the current shortcut name (take off the leading 'mlq-' from the folder name)
                 echo '[mlq] Current shortcut:' `echo "${__mlqs_active[@]}" | awk '{print substr($1,5,length($1)-4)}'`
                 echo ''
-                echo 'Use '"'"'ml -r'"'"' (or '"'"'ml reset'"'"' / '"'"'ml purge'"'"') to turn off this shortcut.'
+                echo 'Use '"'"'ml -r'"'"' to turn off this shortcut.'
                 echo ''
             else
 		echo '[mlq]'
@@ -1569,7 +1571,7 @@ EOF
 
             if [[ $? == 0 ]] ; then
                 __mlqs_active="${shortcut_name_full}"
-                echo 'Use '"'"'ml -r'"'"' (or '"'"'module reset'"'"' / '"'"'module purge'"'"') to turn off this shortcut.'
+                echo 'Use '"'"'ml -r'"'"' to turn off this shortcut.'
             else
                 echo 'An error occurred loading the shortcut. Falling back to ordinary module loading...'
                 fall_back=1
