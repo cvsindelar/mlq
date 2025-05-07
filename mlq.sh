@@ -113,7 +113,21 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
     fi
 
     function module() {
+
+	# If doing 'module load', first unload any loaded shortcuts
 	if [[ "$1" == 'load' ]] ; then
+	    # Don't reload the same mlq module on top of itself, as this complicates things
+	    #  when starting a slurm job, for instance
+	    local mlq_test
+	    mlq_test=( `__mlq_orig_module --redirect --location show $2` ) >& /dev/null
+	    if [[ $# -gt 1 \
+		      && ${#mlq_test[@]} == 1 \
+		      && "${__mlq_path}/${__mlq_version}.lua" == "${mlq_test[@]}" ]] ; then
+		echo '[mlq] module '"${__mlq_version}"' is already loaded, skipping...'
+		return
+	    fi
+	    
+	    # Unload all shortcuts- unll
 	    __mlq_shortcut_reset
 	fi
         # __mlq_orig_module reset
@@ -686,6 +700,7 @@ EOF
     ###########################################
     # '--reset' option: turn off shortcuts with 'module reset'
     ###########################################
+    # if [[ `printf '%s' "$1" | awk '($1 ~ "--r" && "--reset" ~ $1) || $1 == "-r" || $1 == "r" {print 1}'` ]]; then
     if [[ `printf '%s' "$1" | awk '($1 ~ "--r" && "--reset" ~ $1) || $1 == "-r" {print 1}'` ]]; then
         if [[ $n_argin -gt 1 ]] ; then
             echo 'ERROR: no arguments accepted after '"'"'reset|--reset|-r'"'"' option.'
@@ -703,6 +718,7 @@ EOF
         # echo module unuse ${mlq_activated_list}
         # module unuse ${mlq_activated_list}
         __mlq_reset
+
         return
     fi
     
@@ -1579,16 +1595,27 @@ EOF
         fi
         
         if [[ ! -f "${quikmod_lua}" || "${fall_back}" ]] ; then
+	    if [[ ${module_spec[@]} == 'r' ]] ; then
+		echo 'Please use '"'"module restore"'"/"'"module r"'"' for the '"'"lmod"'"' module restore function'
+	    elif [[ ${module_spec[@]} == 'reset' ]] ; then
+		echo 'Please use '"'"module reset"'"' for the '"'"lmod"'"' module reset function;'
+		echo ' you may use '"'"ml -r"'"' to unload modules/shortcuts within the '"'"mlq"'"' environment'
+	    elif [[ ${module_spec[@]} == 'purge' ]] ; then
+		echo 'Please use '"'"module purge"'"' for the '"'"lmod"'"' module purge function'
+	    else
+		# Restore the modulepath from the shortcut in case a custom path was present
+		#  during the original shortcut build (i.e. if the user had previously done 'module use')
+		if [[ "${build_modpath}" ]] ; then
+                    export MODULEPATH="${build_modpath}"
+		elif [[ "${mlq_user_orig_modpath}" ]] ; then
+		    # Restore the original module path prior to exiting
+		    export MODULEPATH="${mlq_user_orig_modpath}"
+		fi
 
-            # Restore the modulepath from the shortcut in case a custom path was present
-            #  during the original shortcut build (i.e. if the user had previously done 'module use')
-            if [[ "${build_modpath}" ]] ; then
-                export MODULEPATH="${build_modpath}"
+		# echo 'Executing: '"'"'ml '"${module_spec[@]}""'"
+		__mlq_orig_ml ${module_spec[@]}
             fi
-
-            # echo 'Executing: '"'"'ml '"${module_spec[@]}""'"
-            __mlq_orig_ml ${module_spec[@]}	    
-        fi
+	fi
     fi
 }
 
