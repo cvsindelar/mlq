@@ -1,4 +1,4 @@
-# mlq: Module loader-quick
+# mlq: module loader-quick
 # Please source this script to access the quik module-loading shortcut function '__mlq'
 #  as well as the module consistency checker 'mlq_check'
 #
@@ -33,6 +33,52 @@ fi
 ###########################################
 ###########################################
 ###########################################
+
+# Function to reset modules while keeping the mlq environment intact
+function __mlq_reset() {
+    # The below variables preserve mlq info if we are in the mlq module;
+    #  this is so we can remember them after resetting the module, which
+    #  eliminates all __mlq variables
+    local tmp_path="${__mlq_path}"
+    local tmp_version="${__mlq_version}"
+    local tmp_auto_prebuild="${__mlq_skip_auto_prebuild}"
+    
+    __mlq_orig_module reset >& /dev/null
+    
+    # By default, the only time prebuilds are automatically loaded
+    #  is when mlq.sh is first sourced. The below variable guides
+    #  this behavior
+    __mlq_skip_auto_prebuild="${tmp_auto_prebuild}"
+    
+    if [[ "${tmp_version}" ]] ; then
+        # Keep mlq around; the user can get rid of it by doing 'ml reset'
+        module use "${tmp_path}"
+        module load "${tmp_version}"
+    fi
+}
+
+# Function to unload the mlq shortcut if present
+function __mlq_shortcut_reset() {
+    # If a shortcut is active, unload it.
+    if [[ "${__mlqs_active[@]}" && "${__mlqs_active}" != 'none' ]]; then
+        printf 'Deactivating the shortcut: '
+        
+        # There shouldn't be more than one, but account for this anyway just in case
+        echo "${__mlqs_active[@]}" | awk '{for(ind=1; ind<=NF;++ind) {printf("'\'%s\'' ", substr($ind,5,length($ind)-4));} printf("...")}'
+
+        __mlq_orig_module unload ${__mlqs_active[@]} #  > /dev/null 2>&1
+	
+        local mlq_path
+        for mod in ${__mlqs_active[@]} ; do
+            mlq_path=`__mlq_orig_module -t --redirect --location show "${mod}"`
+            mlq_path="${mlq_path%/*}"
+            __mlq_orig_module unuse "${mlq_path}"
+        done
+	unset __mlqs_active
+	
+        echo ' done.'
+    fi
+}
 
 # Save the original 'module' functions code as __mlq_orig_module
 #  and __mlq_orig_ml
@@ -113,29 +159,36 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
     fi
 
     function module() {
-
 	# If doing 'module load', first unload any loaded shortcuts
-	if [[ "$1" == 'load' ]] ; then
-	    # Don't reload the same mlq module on top of itself, as this complicates things
-	    #  when starting a slurm job, for instance
-	    local mlq_test
-	    mlq_test=( `__mlq_orig_module --redirect --location show $2` ) >& /dev/null
-	    if [[ $# -gt 1 \
-		      && ${#mlq_test[@]} == 1 \
-		      && "${__mlq_path}/${__mlq_version}.lua" == "${mlq_test[@]}" ]] ; then
-		echo '[mlq] module '"${__mlq_version}"' is already loaded, skipping...'
-		return
-	    fi
-	    
-	    # Unload all shortcuts- unll
-	    __mlq_shortcut_reset
-	fi
-        # __mlq_orig_module reset
-        # module "${@:1}"
-	# declare -f module | tail -n +3|head -n -1
+	# We skip this if the first module argument is an unload request (starts with '-')
+	if [[ "$1" == 'load' && $# -gt 1 ]] ; then
 
-	echo '[mlq] Executing: module '"${@:1}"
-        __mlq_orig_module "${@:1}"
+	    local good_mod_args=
+	    local mod_arg
+	    for mod_arg in "${@:2}" ; do
+		# Don't reload the same mlq module on top of itself, as this complicates things
+		#  when starting a slurm job, for instance
+
+		mlq_test=( `__mlq_orig_module --redirect --location show "${mod_arg}" 2>&1` )
+		if [[ ${#mlq_test[@]} == 1 \
+			  && "${__mlq_path}/${__mlq_version}.lua" == "${mlq_test[@]}" ]] ; then
+		    echo '[mlq] module '"${__mlq_version}"' is already loaded, skipping...'
+		else
+		    good_mod_args=( $good_mod_args $mod_arg)
+		fi
+	    done
+
+	    if [[ "${good_mod_args}" ]] ; then
+		# Unload all shortcuts
+		__mlq_shortcut_reset
+
+		echo '[mlq] Executing: module load '"${good_mod_args[@]}"
+		__mlq_orig_module load "${good_mod_args[@]}"
+	    fi
+	else	
+	    echo '[mlq] Executing: module '"${@:1}"
+            __mlq_orig_module "${@:1}"
+	fi
     }
 
     # Add a hook to the 'ml' command to call __mlq
@@ -155,8 +208,11 @@ fi
 # If requested, remove all traces of mlq during the mlq module unload
 if [[ "$1" == "--mlq_unload" ]]; then
 
+    # Unload all shortcuts first
+    __mlq_shortcut_reset
+    
     # Below, restore original ml and module commands. This script is structured
-    #  so that if __mlq function exists, then __mlq_orig_ml and __mlq_orig_module
+    #  so that if the __mlq function exists, then __mlq_orig_ml and __mlq_orig_module
     #  also exist
     if [[ `type -t __mlq 2> /dev/null` == 'function' ]] ; then
         if [[ `declare -f __mlq_orig_module | grep -v __mlq_orig_module | grep mlq` ]] ; then
@@ -194,6 +250,8 @@ if [[ "$1" == "--mlq_unload" ]]; then
     unset __mlq_module_callstack
     unset __mlq_expected_versions
 
+    echo '[mlq] Goodbye! To restore fast module loading, do: '"'"ml mlq"'"
+
     return
 fi
 
@@ -220,7 +278,7 @@ __mlq_prebuilds_dir="${__mlq_base_dir}/mlq_prebuilds"
 
 # Only do this step if there are no shortcuts in the mlq_prebuilds directory
 # if [ -z "$( /bin/ls -A ${HOME}/.mlq/mlq 2> /dev/null )" ] ; then
-if [[ ! ${__mlq_skip_auto_prebuild} && -z "$( /bin/ls -A ${HOME}/.mlq/mlq 2> /dev/null )" ]] ; then
+if [[ ! ${__mlq_skip_auto_prebuild} ]] ; then
     # Source: https://patorjk.com/software/taag/#p=display&f=Diet%20Cola&t=mlq
 
     # Welcome message
@@ -239,14 +297,23 @@ EOF
     echo ''
 
     if [[ $n_argin -lt 1 ]]; then
-        echo 'Use mlq for quick module loading with the lmod system'
+        echo 'Quick module loading is now enabled.'
         echo ''
-        echo 'Use '"'"'ml --help'"'"' for examples and instructions'
+	echo "'"ml"'"' works exactly the same as before, except that selected modules will now be loaded as fast '"'"shortcuts"'"
+        echo ''
+	echo 'To build new shortcuts, do:'
+        echo '  ml -b SciPy-bundle/2023.02-gfbf-2022b   Builds '"'"'generic'"'"' shortcut for SciPy-bundle'
+        echo '  ml -b rel5 RELION/5.0.0-foss-2022b-CUDA-12.0.0 IMOD/4.12.62_RHEL8-64_CUDA12.0 Emacs/28.2-GCCcore-12.2.0'
+	echo '                                          Builds a custom-named 3-module shortcut, '"'"'rel5'"'"
+	echo 'To list all available shortcuts, do: '"'"ml -a"'"
+        echo ''
+        echo 'Use '"'"'ml --help'"'"' for more examples and instructions'
         echo ''
     fi
 
     # Add prebuilt shortcuts if available
-    if [ ! -z "$( /bin/ls -A ${__mlq_prebuilds_dir} 2> /dev/null )" ] ; then
+    if [[ ! -z "$( /bin/ls -A ${__mlq_prebuilds_dir} 2> /dev/null )" \
+        && -z "$( /bin/ls -A ${HOME}/.mlq/mlq 2> /dev/null )" ]] ; then
         printf 'Setting up pre-built mlq shortcuts...'
         
         mkdir -p "${HOME}"/.mlq/mlq
@@ -261,8 +328,6 @@ EOF
         
         echo ' done.'
         echo ''
-        echo 'Use '"'"'ml --avail'"'"' to list all available shortcuts'
-        echo ''
     fi
 fi
 
@@ -270,58 +335,6 @@ fi
 #  is when mlq.sh is first sourced. The below variable guides
 #  this behavior
 __mlq_skip_auto_prebuild=1
-
-###########################################
-###########################################
-###########################################
-# Ancillary functions
-###########################################
-###########################################
-###########################################
-
-function __mlq_reset() {
-    # The below variables preserve mlq info if we are in the mlq module;
-    #  this is so we can remember them after resetting the module, which
-    #  eliminates all __mlq variables
-    local tmp_path="${__mlq_path}"
-    local tmp_version="${__mlq_version}"
-    local tmp_auto_prebuild="${__mlq_skip_auto_prebuild}"
-    
-    __mlq_orig_module reset >& /dev/null
-    
-    # By default, the only time prebuilds are automatically loaded
-    #  is when mlq.sh is first sourced. The below variable guides
-    #  this behavior
-    __mlq_skip_auto_prebuild="${tmp_auto_prebuild}"
-    
-    if [[ "${tmp_version}" ]] ; then
-        # Keep mlq around; the user can get rid of it by doing 'ml reset'
-        module use "${tmp_path}"
-        module load "${tmp_version}"
-    fi
-}
-
-function __mlq_shortcut_reset() {
-    # If a shortcut is active, unload it.
-    if [[ "${__mlqs_active[@]}" && "${__mlqs_active}" != 'none' ]]; then
-        printf 'Deactivating the shortcut: '
-        
-        # There shouldn't be more than one, but account for this anyway just in case
-        echo "${__mlqs_active[@]}" | awk '{for(ind=1; ind<=NF;++ind) {printf("'\'%s\'' ", substr($ind,5,length($ind)-4));} printf("...")}'
-
-        __mlq_orig_module unload ${__mlqs_active[@]} #  > /dev/null 2>&1
-	
-        local mlq_path
-        for mod in ${__mlqs_active[@]} ; do
-            mlq_path=`__mlq_orig_module -t --redirect --location show "${mod}"`
-            mlq_path="${mlq_path%/*}"
-            __mlq_orig_module unuse "${mlq_path}"
-        done
-	unset __mlqs_active
-	
-        echo ' done.'
-    fi
-}
 
 ###########################################
 ###########################################
@@ -429,8 +442,16 @@ EOF
             if [[ $n_argin -lt 1 ]]; then
                 echo 'Use this function for quick module loading with the lmod system'
                 echo ''
-                echo 'Use '"'"'ml --help'"'"' for examples and instructions'
+		echo "'"ml"'"' works exactly the same as '"'"lmod"'"', except that selected modules are loaded as fast '"'"shortcuts"'"
                 echo ''
+		echo 'To build new shortcuts, do:'
+                echo '  ml -b SciPy-bundle/2023.02-gfbf-2022b   Builds '"'"'generic'"'"' shortcut for SciPy-bundle'
+                echo '  ml -b rel5 RELION/5.0.0-foss-2022b-CUDA-12.0.0 IMOD/4.12.62_RHEL8-64_CUDA12.0 Emacs/28.2-GCCcore-12.2.0'
+		echo '                                          Builds a custom-named 3-module shortcut, '"'"'rel5'"'"
+		echo 'To list all available shortcuts, do: '"'"ml -a"'"
+                echo ''
+                echo 'Use '"'"'ml --help'"'"' for examples and instructions'
+                echo ''		
             fi
             
             # If prebuilt shortcuts available, let the user know
@@ -447,7 +468,7 @@ EOF
 
             help=1
             
-            echo 'mlq: Module loader-quick'
+            echo 'mlq: module loader-quick'
             echo 'https://github.com/cvsindelar/mlq'
             echo ''
             
@@ -477,7 +498,7 @@ EOF
                 echo '  ml --delete|-d <shortcut_name>          Delete shortcut'
                 echo '  ml --reset|-r                           Unloads all modules and shortcuts'
                 echo '                                           (except '"'"'mlq'"'"', which stays loaded)'
-		echo '                                          Note: '"'"'module reset'"'"' or '"'"'ml reset'"'"' '
+		echo '                                          Note: '"'"'module reset/purge/restore/r'"'"
 		echo '                                           behave the same but also unload '"'"'mlq'"'"
                 echo '  ml --nuke                               Delete all shortcuts'
                 echo '  ml --prebuild [<dir>]                   Install links to pre-built shortcuts'
@@ -554,10 +575,10 @@ EOF
                 echo '                                            '"'"'ml SciPy-bundle/2023.02-gfbf-2022b'"'"
                 echo ''
                 echo '  ml -b rel5 RELION/5.0.0-foss-2022b-CUDA-12.0.0 IMOD/4.12.62_RHEL8-64_CUDA12.0 Emacs/28.2-GCCcore-12.2.0'
-                echo '                                           Builds a custom-named 3-module shortcut, '"'"'rel5'"'"
+                echo '                                          Builds a custom-named 3-module shortcut, '"'"'rel5'"'"
                 echo ''
-                echo '  ml list ; ml purge; # etc              Runs the corresponding '"'"ml"'"' commands, i.e.:'
-                echo '                                            ml list ; ml purge # etc'
+                echo '  ml list ; ml avail; # etc               Runs the corresponding '"'"lmod"'"' commands'
+                echo '  module reset/purge/restore/r            '"'"'lmod'"'"' commands that also unload '"'"mlq"'"
                 echo ''
                 echo '  function rel5() { ml rel5 ; }           Bash function definition can be '
                 echo '                                           pasted into your .bashrc'            
@@ -1595,7 +1616,7 @@ EOF
         fi
         
         if [[ ! -f "${quikmod_lua}" || "${fall_back}" ]] ; then
-	    if [[ ${module_spec[@]} == 'r' ]] ; then
+	    if [[ ${module_spec[@]} == 'restore' || ${module_spec[@]} == 'r' ]] ; then
 		echo 'Please use '"'"module restore"'"/"'"module r"'"' for the '"'"lmod"'"' module restore function'
 	    elif [[ ${module_spec[@]} == 'reset' ]] ; then
 		echo 'Please use '"'"module reset"'"' for the '"'"lmod"'"' module reset function;'
