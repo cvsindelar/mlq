@@ -70,7 +70,7 @@ function __mlq_shortcut_reset() {
 
         local mlq_path
         for mod in ${__mlqs_active[@]} ; do
-	    # Path may not exist if mlqs_active is out of date (i.e., shortcuts removed by 'module')
+	    # Path may not exist if mlqs_active is out of date (i.e., shortcuts removed by 'module reset')
             mlq_path=`__mlq_orig_module -t --redirect --location show "${mod}" 2>&1`
 	    if [[ $#{mlq_path} == 1 ]] ; then
 		mlq_path="${mlq_path%/*}"
@@ -285,12 +285,12 @@ if [[ ! ${__mlq_skip_auto_prebuild} ]] ; then
 
     # Welcome message
     IFS='' read -r -d '' __mlq_logo <<"EOF"
-                .                                (__)
-               /                                 (@@)
- .  .-. .-.   / .-.                       /##--##-\#)
-  )/   )   ) / (   )                     / |##  #||  
- '/   /   (_/_.-`-(                     *  ||----||  
-           `-'     `-'                     ^^    ^^  
+            (~~)                   .     
+           <(@@)                  /      
+     /##--##-\#)    .  .-. .-.   / .-.   
+    / |##  # |       )/   )   ) / (   )  
+   *  ||ww--||      '/   /   (_/_.-`-(   
+      ^^    ^^                `-'     `-'
 EOF
     echo "${__mlq_logo}"
     unset __mlq_logo
@@ -301,13 +301,15 @@ EOF
     if [[ $n_argin -lt 1 ]]; then
         echo 'Quick module loading is now enabled.'
         echo ''
-        echo "'"ml"'"' works exactly the same as before, except that selected modules will now be loaded as fast '"'"shortcuts"'"
+        echo "'"ml"'"' works the same as before, except that selected modules will now be loaded as fast '"'"shortcuts"'"
         echo ''
         echo 'To build new shortcuts, do:'
         echo '  ml -b SciPy-bundle/2023.02-gfbf-2022b   Builds '"'"'generic'"'"' shortcut for SciPy-bundle'
         echo '  ml -b rel5 RELION/5.0.0-foss-2022b-CUDA-12.0.0 IMOD/4.12.62_RHEL8-64_CUDA12.0 Emacs/28.2-GCCcore-12.2.0'
         echo '                                          Builds a custom-named 3-module shortcut, '"'"'rel5'"'"
-        echo 'To list all available shortcuts, do: '"'"ml -a"'"
+        echo 'To list all available shortcuts:  '"'"'ml -a'"'"
+        echo 'To load modules the ordinary way: '"'"'module load <mod>'"'"
+        echo 'To exit mlq:                      '"'"'ml -mlq'"'"', '"'"'ml unload mlq'"'"', or '"'"'module reset/purge/restore/r'"'"
         echo ''
         echo 'Use '"'"'ml --help'"'"' for more examples and instructions'
         echo ''
@@ -429,12 +431,12 @@ function __mlq() {
             # Source: https://patorjk.com/software/taag/#p=display&f=Diet%20Cola&t=mlq
             local __mlq_logo
             IFS='' read -r -d '' __mlq_logo <<"EOF"
-                .                                 (__)
-               /                                  (@@)
- .  .-. .-.   / .-.                        /##--##-\#)
-  )/   )   ) / (   )                      / |##  #||  
- '/   /   (_/_.-`-(                      *  ||----||  
-           `-'     `-'                      ^^    ^^  
+            (~~)                   .     
+           <(@@)                  /      
+     /##--##-\#)    .  .-. .-.   / .-.   
+    / |##  # |       )/   )   ) / (   )  
+   *  ||ww--||      '/   /   (_/_.-`-(   
+      ^^    ^^                `-'     `-'
 EOF
             echo "${__mlq_logo}"
 
@@ -444,7 +446,7 @@ EOF
             if [[ $n_argin -lt 1 ]]; then
                 echo 'Use this function for quick module loading with the lmod system'
                 echo ''
-                echo "'"ml"'"' works exactly the same as '"'"lmod"'"', except that selected modules are loaded as fast '"'"shortcuts"'"
+                echo "'"ml"'"' works the same as '"'"lmod"'"', except that selected modules are loaded as fast '"'"shortcuts"'"
                 echo ''
                 echo 'To build new shortcuts, do:'
                 echo '  ml -b SciPy-bundle/2023.02-gfbf-2022b   Builds '"'"'generic'"'"' shortcut for SciPy-bundle'
@@ -1636,7 +1638,7 @@ EOF
                     export MODULEPATH="${mlq_user_orig_modpath}"
                 fi
 
-                echo 'Executing: '"'"'ml '"${module_spec[@]}""'"
+                # echo 'Executing: '"'"'ml '"${module_spec[@]}""'"
                 __mlq_orig_ml ${module_spec[@]}
             fi
         fi
