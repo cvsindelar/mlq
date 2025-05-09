@@ -59,20 +59,23 @@ function __mlq_reset() {
 
 # Function to unload the mlq shortcut if present
 function __mlq_shortcut_reset() {
-    # If a shortcut is active, unload it.
+    # If there is an active shortcut, unload it.
     if [[ "${__mlqs_active[@]}" && "${__mlqs_active}" != 'none' ]]; then
         printf 'Deactivating the shortcut: '
         
         # There shouldn't be more than one, but account for this anyway just in case
         echo "${__mlqs_active[@]}" | awk '{for(ind=1; ind<=NF;++ind) {printf("'\'%s\'' ", substr($ind,5,length($ind)-4));} printf("...")}'
 
-        __mlq_orig_module unload ${__mlqs_active[@]} #  > /dev/null 2>&1
-        
+        __mlq_orig_module unload ${__mlqs_active[@]} >& /dev/null # > /dev/null 2>&1
+
         local mlq_path
         for mod in ${__mlqs_active[@]} ; do
-            mlq_path=`__mlq_orig_module -t --redirect --location show "${mod}"`
-            mlq_path="${mlq_path%/*}"
-            __mlq_orig_module unuse "${mlq_path}"
+	    # Path may not exist if mlqs_active is out of date (i.e., shortcuts removed by 'module')
+            mlq_path=`__mlq_orig_module -t --redirect --location show "${mod}" 2>&1`
+	    if [[ $#{mlq_path} == 1 ]] ; then
+		mlq_path="${mlq_path%/*}"
+		__mlq_orig_module unuse "${mlq_path}"
+	    fi
         done
         unset __mlqs_active
         
@@ -210,7 +213,6 @@ if [[ "$1" == "--mlq_unload" ]]; then
 
     # Unload all shortcuts first
     __mlq_shortcut_reset
-    
     # Below, restore original ml and module commands. This script is structured
     #  so that if the __mlq function exists, then __mlq_orig_ml and __mlq_orig_module
     #  also exist
@@ -1614,7 +1616,8 @@ EOF
                 fall_back=1
             fi
         fi
-        
+
+        # Something other than a shortcut; use 'lmod' 'ml' command
         if [[ ! -f "${quikmod_lua}" || "${fall_back}" ]] ; then
             if [[ ${module_spec[@]} == 'restore' || ${module_spec[@]} == 'r' ]] ; then
                 echo 'Please use '"'"module restore"'"/"'"module r"'"' for the '"'"lmod"'"' module restore function'
@@ -1633,7 +1636,7 @@ EOF
                     export MODULEPATH="${mlq_user_orig_modpath}"
                 fi
 
-                # echo 'Executing: '"'"'ml '"${module_spec[@]}""'"
+                echo 'Executing: '"'"'ml '"${module_spec[@]}""'"
                 __mlq_orig_ml ${module_spec[@]}
             fi
         fi
