@@ -307,9 +307,10 @@ EOF
         echo '  ml -b SciPy-bundle/2023.02-gfbf-2022b   Builds '"'"'generic'"'"' shortcut for SciPy-bundle'
         echo '  ml -b rel5 RELION/5.0.0-foss-2022b-CUDA-12.0.0 IMOD/4.12.62_RHEL8-64_CUDA12.0 Emacs/28.2-GCCcore-12.2.0'
         echo '                                          Builds a custom-named 3-module shortcut, '"'"'rel5'"'"
-        echo 'To list all available shortcuts:  '"'"'ml -a'"'"
-        echo 'To load modules the ordinary way: '"'"'module load <mod>'"'"
-        echo 'To exit mlq:                      '"'"'ml -mlq'"'"', '"'"'ml unload mlq'"'"', or '"'"'module reset/purge/restore/r'"'"
+        echo 'To list all available shortcuts:           '"'"'ml -a'"'"
+        echo 'To unload all modules/shortcuts from mlq:  '"'"'ml -r'"'"
+        echo 'To load modules the ordinary way:          '"'"'module load <mod>'"'"
+        echo 'To exit mlq:                               '"'"'ml -mlq'"'"', '"'"'module unload mlq'"'"', or '"'"'module reset/purge/restore/r'"'"
         echo ''
         echo 'Use '"'"'ml --help'"'"' for more examples and instructions'
         echo ''
@@ -452,8 +453,11 @@ EOF
                 echo '  ml -b SciPy-bundle/2023.02-gfbf-2022b   Builds '"'"'generic'"'"' shortcut for SciPy-bundle'
                 echo '  ml -b rel5 RELION/5.0.0-foss-2022b-CUDA-12.0.0 IMOD/4.12.62_RHEL8-64_CUDA12.0 Emacs/28.2-GCCcore-12.2.0'
                 echo '                                          Builds a custom-named 3-module shortcut, '"'"'rel5'"'"
-                echo 'To list all available shortcuts, do: '"'"ml -a"'"
-                echo ''
+                echo 'To list all available shortcuts, do:       '"'"'ml -a'"'"
+		echo 'To unload all modules/shortcuts from mlq:  '"'"'ml -r'"'"
+		echo 'To load modules the ordinary way:          '"'"'module load <mod>'"'"
+		echo 'To exit mlq:                               '"'"'ml -mlq'"'"', '"'"'module unload mlq'"'"', or '"'"'module reset/purge/restore/r'"'"
+		echo ''
                 echo 'Use '"'"'ml --help'"'"' for examples and instructions'
                 echo ''         
             fi
