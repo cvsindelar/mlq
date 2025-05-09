@@ -4,7 +4,7 @@ Module Loader-Quick (for lmod)               (__)
                                              (@@)
                                       /##--##-\#)
                                      / ###  #||  
-                                    *  ||----||  
+                                    *  ||ww--||  
                                        ^^    ^^
 ```
 # What it's for
