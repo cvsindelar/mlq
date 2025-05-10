@@ -44,7 +44,8 @@ function __mlq_reset() {
     local tmp__first_load="${__mlq_first_load}"
 
     if [[ $# -gt 0 ]] ; then
-	__mlq_orig_module "${@:1}" >& /dev/null
+	__mlq_orig_module unload ${__mlq_version} >& /dev/null
+	module "${@:1}"
     else
 	__mlq_orig_module reset >& /dev/null
     fi	
@@ -68,17 +69,21 @@ function __mlq_reset() {
 
 # Function to unload the mlq shortcut if present
 function __mlq_shortcut_reset() {
+    local mlqs_active
+    mlqs_active=(`__mlqs_active`)
+    
     # If there is an active shortcut, unload it.
-    if [[ "${__mlqs_active[@]}" && "${__mlqs_active}" != 'none' ]]; then
+    if [[ "${mlqs_active[@]}" ]]; then
         printf 'Deactivating the shortcut: '
         
         # There shouldn't be more than one, but account for this anyway just in case
-        echo "${__mlqs_active[@]}" | awk '{for(ind=1; ind<=NF;++ind) {printf("'\'%s\'' ", substr($ind,5,length($ind)-4));} printf("...")}'
+        echo "${mlqs_active[@]}" | awk '{for(ind=1; ind<=NF;++ind) {printf("'\'%s\'' ", substr($ind,5,length($ind)-4));} printf("...")}'
 
-        __mlq_orig_module unload ${__mlqs_active[@]} >& /dev/null # > /dev/null 2>&1
+        __mlq_orig_module unload "${mlqs_active[@]}"
+        # __mlq_orig_module unload "${mlqs_active[@]}" >& /dev/null # > /dev/null 2>&1
 
         local mlq_path
-        for mod in ${__mlqs_active[@]} ; do
+        for mod in ${mlqs_active[@]} ; do
 	    # Path may not exist if mlqs_active is out of date (i.e., shortcuts removed by 'module reset')
             mlq_path=`__mlq_orig_module -t --redirect --location show "${mod}" 2>&1`
 	    if [[ $#{mlq_path} == 1 ]] ; then
@@ -86,10 +91,42 @@ function __mlq_shortcut_reset() {
 		__mlq_orig_module unuse "${mlq_path}"
 	    fi
         done
-        unset __mlqs_active
         
         echo ' done.'
     fi
+}
+
+function __mlqs_active() {
+    ###########################################
+    # Set __mlqs_active to any active shortcut
+    # (there shouldn't be more than one, but handle that case
+    #  anyway, to be safe)
+    ###########################################
+
+    local __mlqs_active_candidates
+    local mod
+    local mod_file
+    local mlqs_active
+    mlqs_active=
+    mlqs_active_candidates=(`__mlq_orig_module -t --redirect list|grep '^mlq[-]'`)
+    for mod in ${mlqs_active_candidates[@]} ; do
+        mod_file=`__mlq_orig_module --redirect --location show "${mod}"`
+
+        # Screen out 'imposter' modules that start with 'mlq-' but are not shortcuts
+        is_qmod=`echo "${mod_file}" | \
+                      awk -v qhome="${HOME}"/.mlq/mlq \
+                      '{ if(substr($1,1,length(qhome)) == qhome) print(1); }'`
+        
+        if [[ "${is_qmod}"  ]] ; then
+            if [[ ! "${mlqs_active[@]}" ]] ; then
+                mlqs_active=("${mod}")
+            else
+                mlqs_active=("${mlqs_active[@]}" "${mod}")
+            fi
+        fi
+    done
+    
+    echo ${mlqs_active[@]}
 }
 
 # Save the original 'module' functions code as __mlq_orig_module
@@ -197,20 +234,29 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
                 echo '[mlq] Executing: module load '"${good_mod_args[@]}"
                 __mlq_orig_module load "${good_mod_args[@]}"
             fi
-        else    
-            echo '[mlq] Executing: module '"${@:1}"
-            __mlq_orig_module "${@:1}"
+	    return
         fi
+
+	# Turns out we need to unload mlq before doing a module restore,
+	#  to ensure that shortcuts in saved collections are not omitted from the restore!
+        if [[ "$1" == 'restore' || "$1" == "r" ]] ; then
+	    __mlq_orig_module unload ${__mlq_version} >& /dev/null
+	    
+	    # Long explanation: lmod seems not to unload old modules before it begins 
+	    #  loading the saved ones in the collections. So the old mlq can stay 
+	    #  loaded past the point when a saved collection shortcut gets loaded.
+	    #  Then, unloading of the old mlq can occur, which unloads the newly
+	    #  restored shortcut!!
+	fi
+	
+        echo '[mlq] Executing: module '"${@:1}"
+        __mlq_orig_module "${@:1}"
     }
 
     # Add a hook to the 'ml' command to call __mlq
     function ml() {
         __mlq "${@:1}"
-    }
-    
-    # Unsetting __mlqs_active (the active shortcut, if any) makes sure it will be 
-    #  refreshed when mlq is called for the first time
-    unset __mlqs_active
+    }    
 else
     # Specify that mlq is not being loaded as an lmod module
     unset __mlq_version
@@ -222,6 +268,7 @@ if [[ "$1" == "--mlq_unload" ]]; then
 
     # Unload all shortcuts first
     __mlq_shortcut_reset
+    
     # Below, restore original ml and module commands. This script is structured
     #  so that if the __mlq function exists, then __mlq_orig_ml and __mlq_orig_module
     #  also exist
@@ -244,6 +291,7 @@ if [[ "$1" == "--mlq_unload" ]]; then
     unset -f __mlq
     unset -f __mlq_reset
     unset -f __mlq_shortcut_reset
+    unset -f __mlqs_active
 
     unset __mlq_first_load
 
@@ -251,11 +299,13 @@ if [[ "$1" == "--mlq_unload" ]]; then
     unset __mlq_path
     unset __mlq_base_dir
     unset __mlq_prebuilds_dir
+
+    unset __mlq_logo
+    unset __mlq_welcome
     
     unset -f mlq_check
     unset -f __mlq_parse_module_tree_iter
 
-    unset __mlqs_active
     unset __mlq_module_version
     unset __mlq_module_file
     unset __mlq_module_callstack
@@ -392,39 +442,6 @@ EOF
     mlq_user_orig_modpath="${MODULEPATH}"
         
     ###########################################
-    # Set __mlqs_active to any active shortcut
-    # (there shouldn't be more than one, but handle that case
-    #  anyway, to be safe)
-    ###########################################
-
-    local __mlqs_active_candidates
-    local mod
-    local mod_file
-
-    __mlqs_active=
-    mlqs_active_candidates=(`__mlq_orig_module -t --redirect list|grep '^mlq[-]'`)
-    for mod in ${mlqs_active_candidates[@]} ; do
-        mod_file=`__mlq_orig_module --redirect --location show "${mod}"`
-
-        # Screen out 'imposter' modules that start with 'mlq-' but are not shortcuts
-        is_qmod=`echo "${mod_file}" | \
-                      awk -v qhome="${HOME}"/.mlq/mlq \
-                      '{ if(substr($1,1,length(qhome)) == qhome) print(1); }'`
-        
-        if [[ "${is_qmod}"  ]] ; then
-            if [[ ! "${__mlqs_active}" ]] ; then
-                __mlqs_active=("${mod}")
-            else
-                __mlqs_active=("${__mlqs_active}" "${mod}")
-            fi
-        fi
-    done
-    
-    if [[ ! "${__mlqs_active}" ]] ; then
-        __mlqs_active='none'
-    fi
-
-    ###########################################
     # Parse the arguments
     # 
     # Note, options to mlq 'ml' are of the form 'ml -h', 'ml -a', etc.
@@ -548,15 +565,16 @@ EOF
         if [[ "${n_argin}" -eq 0 && ! -z "$( /bin/ls -A ${HOME}/.mlq/mlq )" ]]; then
                 
             # __mlq_orig_module --ignore_cache list # |& awk '$0 == "Currently Loaded Modules:" {getline; print}'
-            
-            if [[ "${__mlqs_active[@]}" && "${__mlqs_active}" != 'none' ]]; then
+            local mlqs_active
+	    mlqs_active=(`__mlqs_active`)
+            if [[ "${mlqs_active}" ]]; then
                 # Check if ordinary modules are also present (shouldn't be!)
                 if [[ `__mlq_orig_module --redirect -t list|grep -v StdEnv|grep -v '^mlq[-|/]'` ]] ; then
                     echo '###########################################'
                     echo '###########################################'
                     echo '###########################################'
                     echo 'WARNING: the mlq environment appears to be corrupted!'
-                    # echo 'additional modules are loaded on top of the shortcut' `echo "${__mlqs_active[@]}" | awk '{printf("'\'%s\'' ... ", substr($1,5,length($1)-4))}'`
+                    # echo 'additional modules are loaded on top of the shortcut' `__mlqs_active | awk '{printf("'\'%s\'' ... ", substr($1,5,length($1)-4))}'`
                     echo 'Results may not be predictable; recommend to do '"'"module reset"'"' before proceeding.'
                     echo '###########################################'
                     echo '###########################################'
@@ -565,7 +583,7 @@ EOF
                 fi
 
                 # Print the current shortcut name (take off the leading 'mlq-' from the folder name)
-                echo '[mlq] Current shortcut:' `echo "${__mlqs_active[@]}" | awk '{print substr($1,5,length($1)-4)}'`
+                echo '[mlq] Current shortcut:' `echo "${mlqs_active}" | awk '{print substr($1,5,length($1)-4)}'`
                 echo ''
                 echo 'Use '"'"'ml reset'"'"' to turn off this shortcut.'
                 echo ''
@@ -858,9 +876,9 @@ EOF
     # List dependent modulefiles
     ###########################################
     if [[ "${mlq_list}" ]] ; then
-        if [[ "${__mlqs_active[@]}" && "${__mlqs_active}" != 'none' ]] ; then
+        if [[ `__mlqs_active` ]] ; then
             local mod_list
-            shortcut_name=`echo "${__mlqs_active[@]}" | awk '{print substr($1,5,length($1)-4)}'`
+            shortcut_name=`__mlqs_active | awk '{print substr($1,5,length($1)-4)}'`
             collection_name=`echo "${shortcut_name}"|awk '{sub("/","-",$0); gsub("[.]","_",$0); print $0}'`
             
             # If for whatever reason there were multiple mod_list files (should never happen),
@@ -1535,7 +1553,6 @@ EOF
             __mlq_orig_module load "${shortcut_name_full}"
 
             if [[ $? == 0 ]] ; then
-                __mlqs_active="${shortcut_name_full}"
                 echo 'Use '"'"'ml reset'"'"' to turn off this shortcut.'
             else
                 echo 'An error occurred loading the shortcut. Falling back to ordinary module loading...'
@@ -1547,9 +1564,9 @@ EOF
         if [[ ! -f "${quikmod_lua}" || "${fall_back}" ]] ; then
 	    
 	    # Reset/restore/purge: use __mlq_reset to keep mlq around
-            if [[ ${module_spec[@]} == 'restore' || ${module_spec[@]} == 'r' || \
-		      ${module_spec[@]} == 'reset' || \
-		      ${module_spec[@]} == 'purge' ]] ; then
+            if [[ ${module_spec[0]} == 'restore' || ${module_spec[0]} == 'r' || \
+		      ${module_spec[0]} == 'reset' || \
+		      ${module_spec[0]} == 'purge' ]] ; then
                 __mlq_reset ${module_spec[@]}
             else
                 # Restore the modulepath from the shortcut in case a custom path was present
@@ -1622,7 +1639,8 @@ function mlq_check() {
     # if [[ "$#" -lt 1 ]] ; then
     #     __mlq_orig_module load ${mlq_check_args}
     # fi
-    # return $return_status
+
+    return $return_status
 }
 
 function __mlq_parse_module_tree_iter() {
