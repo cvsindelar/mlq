@@ -44,7 +44,7 @@ function __mlq_reset() {
     local tmp__first_load="${__mlq_first_load}"
 
     if [[ $# -gt 0 ]] ; then
-	__mlq_orig_module unload ${__mlq_version} >& /dev/null
+	__mlq_orig_module unload ${__mlq_version} # >& /dev/null
 	module "${@:1}"
     else
 	__mlq_orig_module reset >& /dev/null
@@ -237,18 +237,33 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
 	    return
         fi
 
-	# Turns out we need to unload mlq before doing a module restore,
-	#  to ensure that shortcuts in saved collections are not omitted from the restore!
-        if [[ "$1" == 'restore' || "$1" == "r" ]] ; then
-	    __mlq_orig_module unload ${__mlq_version} >& /dev/null
-	    
-	    # Long explanation: lmod seems not to unload old modules before it begins 
-	    #  loading the saved ones in the collections. So the old mlq can stay 
-	    #  loaded past the point when a saved collection shortcut gets loaded.
-	    #  Then, unloading of the old mlq can occur, which unloads the newly
-	    #  restored shortcut!!
-	fi
+	# Shortcuts do not work when saved in collections. This is because when a collection
+	#  is loaded, its path must be in the $MODULEPATH- which it will not be, because __mlq
+	#  uses custom paths added to $MODULEPATH, not available otherwise.
+	# Even if shortcuts did work with collection,s it turns out we sould need to unload mlq 
+	#  before doing a module restore, to ensure that shortcuts in saved collections are
+	#  not omitted from the restore!
+	# This is because lmod seems not to unload old modules before it begins 
+	#  loading the saved ones in the collections. So the old mlq can stay 
+	#  loaded past the point when a saved collection shortcut gets loaded.
+	#  Then, unloading of the old mlq can occur, which unloads the newly
+	#  restored shortcut!!
+	# The following code could address the second problem, but not the first:
+        # if [[ "$1" == 'restore' || "$1" == "r" ]] ; then
+	#     __mlq_orig_module unload ${__mlq_version} >& /dev/null	    
+	# fi
 	
+	if [[ ( "$1" == 'save' || "$1" == 's' ) ]] ; then
+	    if [[ `__mlqs_active` ]] ; then
+		echo 'Sorry, shortcuts cannot be saved in an lmod collection:'
+		__mlqs_active | awk '{print "  " substr($1,5,length($1)-4)}'
+		echo ''
+		echo 'To load a shortcut on login, you can put a line in your shell startup file (i.e., .bashrc):'
+		echo '  ml mlq; ml <your shortcut>'
+		return
+	    fi
+	fi
+	    
         echo '[mlq] Executing: module '"${@:1}"
         __mlq_orig_module "${@:1}"
     }
@@ -1562,6 +1577,19 @@ EOF
 
         # Something other than a shortcut; use 'lmod' 'ml' command
         if [[ ! -f "${quikmod_lua}" || "${fall_back}" ]] ; then
+
+	    # make sure the user doesn't use 'save' with a shortcut, which won't work:
+	    if [[ ( ${module_spec[0]} == 'save' || ${module_spec[0]} == 's' ) ]] ; then
+		# Nested if statement to avoid unnecessary calling of __mlqs_active
+		if [[ `__mlqs_active` ]] ; then
+		    echo 'Sorry, shortcuts cannot be saved in an lmod collection:'
+		    __mlqs_active | awk '{print "  " substr($1,5,length($1)-4)}'
+		    echo ''
+		    echo 'To load a shortcut on login, you can put a line in your shell startup file (i.e., .bashrc):'
+		    echo '  ml mlq; ml <your shortcut>'
+		    return
+		fi
+	    fi
 	    
 	    # Reset/restore/purge: use __mlq_reset to keep mlq around
             if [[ ${module_spec[0]} == 'restore' || ${module_spec[0]} == 'r' || \
@@ -1571,6 +1599,8 @@ EOF
             else
                 # Restore the modulepath from the shortcut in case a custom path was present
                 #  during the original shortcut build (i.e. if the user had previously done 'module use')
+		# This will only happen if an automatic rebuild occurs during a module load and then fails;
+		#  the code then falls through to here:
                 if [[ "${build_modpath}" ]] ; then
                     export MODULEPATH="${build_modpath}"
                 elif [[ "${mlq_user_orig_modpath}" ]] ; then
