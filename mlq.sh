@@ -255,11 +255,9 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
 	
 	if [[ ( "$1" == 'save' || "$1" == 's' ) ]] ; then
 	    if [[ `__mlqs_active` ]] ; then
-		echo 'Sorry, shortcuts cannot be saved in an lmod collection:'
-		__mlqs_active | awk '{print "  " substr($1,5,length($1)-4)}'
-		echo ''
+		echo 'Sorry, shortcuts cannot be saved in an lmod collection'
 		echo 'To load a shortcut on login, you can put a line in your shell startup file (i.e., .bashrc):'
-		echo '  ml mlq; ml <your shortcut>'
+		__mlqs_active | awk '{print "  ml mlq; ml " substr($1,5,length($1)-4)}'
 		return
 	    fi
 	fi
@@ -1578,17 +1576,11 @@ EOF
         # Something other than a shortcut; use 'lmod' 'ml' command
         if [[ ! -f "${quikmod_lua}" || "${fall_back}" ]] ; then
 
-	    # make sure the user doesn't use 'save' with a shortcut, which won't work:
+	    # make sure the user doesn't use 'save' with a shortcut, which won't work
+	    #  the mlq 'module' function handles this case
 	    if [[ ( ${module_spec[0]} == 'save' || ${module_spec[0]} == 's' ) ]] ; then
-		# Nested if statement to avoid unnecessary calling of __mlqs_active
-		if [[ `__mlqs_active` ]] ; then
-		    echo 'Sorry, shortcuts cannot be saved in an lmod collection:'
-		    __mlqs_active | awk '{print "  " substr($1,5,length($1)-4)}'
-		    echo ''
-		    echo 'To load a shortcut on login, you can put a line in your shell startup file (i.e., .bashrc):'
-		    echo '  ml mlq; ml <your shortcut>'
-		    return
-		fi
+		module ${module_spec[@]}
+		return
 	    fi
 	    
 	    # Reset/restore/purge: use __mlq_reset to keep mlq around
