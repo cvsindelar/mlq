@@ -384,7 +384,7 @@ if [[ ! ${__mlq_first_load} ]] ; then
     echo "${__mlq_logo}"
     echo 'Welcome to mlq!'
     echo "${__mlq_welcome}"
-    echo 'Use '"'"'ml --help'"'"' for more examples and instructions'
+    echo 'Use '"'"'ml -h'"'"' to get this message, or '"'"'ml -hf'"'"' for more examples and instructions'
     echo ''    
     
     # Add prebuilt shortcuts if available
