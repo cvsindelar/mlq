@@ -44,7 +44,7 @@ function __mlq_reset() {
     local tmp__first_load="${__mlq_first_load}"
 
     if [[ $# -gt 0 ]] ; then
-	__mlq_orig_module unload ${__mlq_version} # >& /dev/null
+	__mlq_orig_module unload ${__mlq_version} >& /dev/null
 	module "${@:1}"
     else
 	__mlq_orig_module reset >& /dev/null
@@ -363,7 +363,6 @@ EOF
 
 # Welcome message
 IFS='' read -r -d '' __mlq_welcome <<"EOF"
-Welcome to mlq!
 mlq: module loader-quick
 https://github.com/cvsindelar/mlq
 
@@ -385,6 +384,7 @@ if [[ ! ${__mlq_first_load} ]] ; then
     echo 'Quick module loading is now enabled.'
     echo ''
     echo "${__mlq_logo}"
+    echo 'Welcome to mlq!'
     echo "${__mlq_welcome}"
     echo 'Use '"'"'ml --help'"'"' for more examples and instructions'
     echo ''    
