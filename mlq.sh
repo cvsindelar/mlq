@@ -44,12 +44,13 @@ function __mlq_reset() {
     local tmp_mlq_loaded="${__mlq_loaded}"
 
     if [[ $# -gt 0 ]] ; then
-	# Below, we could unload mlq prior to reset/restore/purge; 
-	#  this is currently unnecessary since these commands all unload mlq anyway.
+	# Below, we unload mlq prior to reset/restore/purge; 
+	#  this is currently unnecessary since these commands all unload mlq anyway;
+	#  just prevents a confusing 'unload' message since it is immediately loaded again.
 	# However, if 'module restore' were ever made to work with shortcuts, the mlq 
 	#  unloading would probably be needed to prevent quirky behavior on the part of lmod.
-	# __mlq_orig_module unload ${__mlq_version} >& /dev/null
-	
+
+	__mlq_orig_module unload ${__mlq_version} >& /dev/null
 	module "${@:1}"
     else
 	__mlq_orig_module reset >& /dev/null
@@ -238,7 +239,7 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
                 # Unload all shortcuts
                 __mlq_shortcut_reset
 
-                echo '[mlq] Executing: module load '"${good_mod_args[@]}"
+                # echo '[mlq] Executing: module load '"${good_mod_args[@]}"
                 __mlq_orig_module load "${good_mod_args[@]}"
             fi
 	    return
@@ -269,7 +270,7 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
 	    fi
 	fi
 	    
-        echo '[mlq] Executing: module '"${@:1}"
+        # echo '[mlq] Executing: module '"${@:1}"
         __mlq_orig_module "${@:1}"
     }
 
