@@ -573,7 +573,7 @@ EOF
 	    # echo "${__mlq_welcome}"
 	    echo "${__mlq_logo}""${__mlq_welcome}"
             echo 'Use '"'"'--helpfull'"'"'|'"'"'-hf'"'"' for full instructions.'
-	    echo 'Use '"'"'--help_ml'"'"'|'"'"'-hml'"'"' for help with '"'"'lmod'"'"' ml'
+	    echo 'Use '"'"'--help_ml'"'"'|'"'"'-hm'"'"' for help with '"'"'lmod'"'"' ml'
 	    echo ''
         fi
         
