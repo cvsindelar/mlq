@@ -4,7 +4,6 @@ Description
 ===========
 Module Loader-Quick (for lmod)
 
-
 More information
 ================
  - Homepage: https://github.com/cvsindelar/mlq
