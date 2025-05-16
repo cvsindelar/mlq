@@ -549,8 +549,8 @@ EOF
                     echo '###########################################'
                     echo '###########################################'
                     echo '###########################################'
-                    echo 'WARNING: the mlq environment appears to be corrupted!'
-                    # echo 'additional modules are loaded on top of the shortcut' `__mlqs_active | awk '{printf("'\'%s\'' ... ", substr($1,5,length($1)-4))}'`
+                    echo 'WARNING: the mlq environment appears to be corrupted.'
+                    echo 'Additional modules are loaded on top of the shortcut' `__mlqs_active | awk '{printf("'\'%s\'' ... ", substr($1,5,length($1)-4))}'`
                     echo 'Results may not be predictable; recommend to do '"'"module reset"'"' before proceeding.'
                     echo '###########################################'
                     echo '###########################################'
@@ -575,15 +575,6 @@ EOF
     # Parse other options
     ###########################################
 
-    ###########################################
-    # '--list' option: list dependent modulefiles
-    ###########################################
-    local mlq_list
-    mlq_list=
-    if [[ `printf '%s' "$1" | awk '($1 ~ "--l" && "--list" ~ $1) || $1 == "-l" {print 1}'` ]]; then
-        mlq_list=1
-    fi
-    
     ###########################################
     # '--avail' option: list all available shortcuts, including prebuilt ones
     #  as well as custom-made shortcuts
@@ -679,6 +670,7 @@ EOF
             echo 'Arguments after '"'"'--nuke'"'"' not understood!'
             return 1
         fi
+	return
     fi
     
     ###########################################
@@ -771,72 +763,96 @@ EOF
     fi
 
     ###########################################
-    # Define all the needed variable names and paths
+    # '--list' option: list dependent modulefiles
+    ###########################################
+    local mlq_list
+    mlq_list=
+    if [[ `printf '%s' "$1" | awk '($1 ~ "--l" && "--list" ~ $1) || $1 == "-l" {print 1}'` ]]; then
+        mlq_list=1
+	shift
+    fi
+    
+    ###########################################
+    # Define all the variable names and paths need for loading or building shortcuts/modules
     ###########################################
     
     local module_spec
     module_spec=("${@:1}")
-    
-    # Make a valid module collection name by getting rid of slashes and periods in $shortcut_name
-    local collection_name
-    collection_name=`echo "${shortcut_name}"|awk '{sub("/","-",$0); gsub("[.]","_",$0); print $0}'`
 
-    # Find out if the module includes a version name.
-    #  In this case, we need a make subdirectory
-    local dir_t
-    local quikmod_top_dir
-    dir_t=(`echo "${shortcut_name}" | awk '{sub("/"," ", $0); print}'`)
+    # Only do the setup if any sort of loading or building is being done
+    if [[ "${module_spec}" ]] ; then
+	
+	# Make a valid module collection name by getting rid of slashes and periods in $shortcut_name
+	local collection_name
+	collection_name=`echo "${shortcut_name}"|awk '{sub("/","-",$0); gsub("[.]","_",$0); print $0}'`
 
-    if [[ ${#dir_t[@]} -gt 1 ]]; then
-        quikmod_top_dir='mlq-'"${dir_t[0]}"
-    else
-        quikmod_top_dir=
+	# Find out if the module includes a version name.
+	#  In this case, we need a make subdirectory
+	local dir_t
+	local quikmod_top_dir
+	dir_t=(`echo "${shortcut_name}" | awk '{sub("/"," ", $0); print}'`)
+
+	if [[ ${#dir_t[@]} -gt 1 ]]; then
+            quikmod_top_dir='mlq-'"${dir_t[0]}"
+	else
+            quikmod_top_dir=
+	fi
+
+	# Define target_dir, which is where the shortcut info will be stored
+	local target_dir
+	target_dir="${mlq_dir}/${collection_name}"
+
+	# Define extended_target_dir, which also includes the module name if
+	#  there is a version subdirectory
+	local extended_target_dir
+	extended_target_dir="${target_dir}"
+	
+	if [[ "${quikmod_top_dir}" ]]; then
+            extended_target_dir="${extended_target_dir}/${quikmod_top_dir}"
+	fi
+
+	# Get the lua filename, based on the full name which is mlq-<shortcut name>
+	local quikmod_lua
+	local shortcut_name_full
+
+	shortcut_name_full='mlq-'"${shortcut_name}"
+	quikmod_lua="$target_dir/${shortcut_name_full}.lua"
+	prebuild_lua="${__mlq_prebuilds_dir}/${collection_name}/${shortcut_name_full}.lua"
     fi
-
-    # Define target_dir, which is where the shortcut info will be stored
-    local target_dir
-    target_dir="${mlq_dir}/${collection_name}"
-
-    # Define extended_target_dir, which also includes the module name if
-    #  there is a version subdirectory
-    local extended_target_dir
-    extended_target_dir="${target_dir}"
     
-    if [[ "${quikmod_top_dir}" ]]; then
-        extended_target_dir="${extended_target_dir}/${quikmod_top_dir}"
-    fi
-
-    # Get the lua filename, based on the full name which is mlq-<shortcut name>
-    local quikmod_lua
-    local shortcut_name_full
-
-    shortcut_name_full='mlq-'"${shortcut_name}"
-    quikmod_lua="$target_dir/${shortcut_name_full}.lua"
-    prebuild_lua="${__mlq_prebuilds_dir}/${collection_name}/${shortcut_name_full}.lua"
-
     ###########################################
     # List dependent modulefiles
     ###########################################
     if [[ "${mlq_list}" ]] ; then
-        if [[ `__mlqs_active` ]] ; then
+	local loaded_shortcut
+	loaded_shortcut=`__mlqs_active`
+        if [[ "${loaded_shortcut}" ]] ; then
+	    mod_file=`ml --redirect --location show "${loaded_shortcut}"`
             local mod_list
-            shortcut_name=`__mlqs_active | awk '{print substr($1,5,length($1)-4)}'`
-            collection_name=`echo "${shortcut_name}"|awk '{sub("/","-",$0); gsub("[.]","_",$0); print $0}'`
-            
+            mod_list=("${mod_file%.*}".mod_list)
+
+	    # Below, strip off the leading 'mlq-' from the shortcut name for printing:
+            ( echo 'Modulefiles used for the shortcut '`echo "${loaded_shortcut}" | awk '{printf("'\'%s\'' :", substr($1,5,length($1)-4))}'` ; 
+	      echo '' ; \
+	      cat "${mod_list}" ; \
+	    ) \
+             | less -X --quit-if-one-screen
+	    
+            # shortcut_name=`__mlqs_active | awk '{print substr($1,5,length($1)-4)}'`
+            # collection_name=`echo "${shortcut_name}"|awk '{sub("/","-",$0); gsub("[.]","_",$0); print $0}'`
             # If for whatever reason there were multiple mod_list files (should never happen),
             #  we make sure the existence check would still work:
-            mod_list=(`find "${mlq_dir}"/"${collection_name}"/ -name '*.mod_list'`)
-
-            if [[ "${mod_list[-1]}" ]] ; then
-                echo 'Modulefiles used for shortcut '"${shortcut_name}" ':'
-                local m
-                for m in ${mod_list[@]} ; do
-                    echo "From ${m}" ':'
-                    echo ''
-                    cat "${m}"
-                    echo ''
-                done
-            fi
+            # mod_list=(`find "${mlq_dir}"/"${collection_name}"/ -name '*.mod_list'`)
+            # if [[ "${mod_list[-1]}" ]] ; then
+            #     echo 'Modulefiles used for shortcut '"${shortcut_name}" ':'
+            #     local m
+            #     for m in ${mod_list[@]} ; do
+            #         echo "From ${m}" ':'
+            #         echo ''
+            #         cat "${m}"
+            #         echo ''
+            #     done
+            # fi
         fi
         return
     fi
