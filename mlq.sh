@@ -521,10 +521,6 @@ EOF
 	    echo '					      (including generic ones)'
 	    echo '  ml --delete|-d <shortcut_name>	    Delete shortcut'
 	    echo '  ml --nuke				    Delete all shortcuts'
-	    echo '  ml --prebuild [<dir>]		    Install links to pre-built shortcuts'
-	    echo '					      If not specified, <dir> defaults to '
-	    echo '					      pre-built system shortcuts in:'
-	    echo '					      '"${__mlq_prebuilds_dir}"
 	    echo '  ml --help|-h			    Short help message with examples'
 	    echo '  ml --helpfull|-hf			    Print this help message'
 	    echo '  ml --help_ml|-hm			    Print help for '"'"'lmod'"'"' ml'

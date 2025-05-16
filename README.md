@@ -56,7 +56,6 @@ cp -R -L ~/.mlq/mlq/<shortcut_dir> <path-to-mlq.sh>/mlq_prebuilds
 mkdir -p <path-to-mlq_simple.sh>/mlq_simple
 cp -R -L ~/.mlq/mlq_simple/<shortcut.lua> <path-to-mlq_simple.sh>/mlq_simple
 ```
-Shortcuts in these locations will be linked to the user cache automatically the first time a user loads the `mlq` function, or may be added thereafter with the `--prebuild` option. For `mlsq`, the global shared shortcuts are always visible.
 
 # Features
 
