@@ -248,7 +248,7 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
 	# Shortcuts do not work when saved in collections. This is because when a collection
 	#  is loaded, its path must be in the $MODULEPATH- which it will not be, because __mlq
 	#  uses custom paths added to $MODULEPATH, not available otherwise.
-	# Even if shortcuts did work with collection,s it turns out we sould need to unload mlq 
+	# Even if shortcuts did work with collections it turns out we would need to unload mlq 
 	#  before doing a module restore, to ensure that shortcuts in saved collections are
 	#  not omitted from the restore!
 	# This is because lmod seems not to unload old modules before it begins 
