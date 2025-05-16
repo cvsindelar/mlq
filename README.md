@@ -46,15 +46,15 @@ After installation, type `ml` (or `mlsq`) for preliminary help and you are on yo
 ```
 # mlq module installed with EasyBuild
 mkdir -p $EBROOTMLQ/mlq_prebuilds
-cp -R -L ~/.mlq/mlq/<shortcut_dir> $EBROOTMLQ/mlq_prebuilds
+cp -R -L ~/.mlq/<shortcut_dir> $EBROOTMLQ/mlq_prebuilds
 
 # mlq module installed manually
 mkdir -p <path-to-mlq.sh>/mlq_prebuilds
-cp -R -L ~/.mlq/mlq/<shortcut_dir> <path-to-mlq.sh>/mlq_prebuilds
+cp -R -L ~/.mlq/<shortcut_dir> <path-to-mlq.sh>/mlq_prebuilds
 
 # mlsq function uses a different directory and a simpler shortcut directory structure
 mkdir -p <path-to-mlq_simple.sh>/mlq_simple
-cp -R -L ~/.mlq/mlq_simple/<shortcut.lua> <path-to-mlq_simple.sh>/mlq_simple
+cp -R -L ~/mlq_simple/<shortcut.lua> <path-to-mlq_simple.sh>/mlq_simple
 ```
 
 # Features
