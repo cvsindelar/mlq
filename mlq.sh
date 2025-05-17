@@ -396,9 +396,9 @@ To build new shortcuts do, i.e.:
   ml -b rel5 RELION/5.0.0-foss-2022b-CUDA-12.0.0 IMOD/4.12.62_RHEL8-64_CUDA12.0 Emacs/28.2-GCCcore-12.2.0
                                           Builds a custom-named 3-module shortcut, 'rel5'
 
-To list available shortcuts:             'ml -a'
-To unload all modules/shortcuts from mlq:  'ml reset'
 To load modules the ordinary way:          'module load <mod>'
+To list existing shortcuts:                'ml -e'
+To unload all modules/shortcuts from mlq:  'ml reset'
 To exit mlq:                               'ml -mlq', 'module unload mlq', or module reset/purge/restore/r'
 EOF
 
@@ -449,9 +449,39 @@ EOF
     local n_argin
     n_argin=$#
 
+    local build_modpath
     local mlq_user_orig_modpath
     mlq_user_orig_modpath="${MODULEPATH}"
-        
+    build_modpath="${mlq_user_orig_modpath}"
+
+    local shortcut_name
+    local custom_name
+    local request_type
+    local safe_build
+    request_type='load'
+    custom_name=
+    safe_build=1
+    shortcut_name=
+    
+    local fall_back
+    local rebuild
+    local ordered_module_list
+
+    fall_back=
+    rebuild=
+    ordered_module_list=
+
+    ###########################################
+    # Bash command to save file info, including the full contents, size, and date,
+    #  for the set of lua modulefiles that defines a shortcut; this is used 
+    #  to test if any of them changed, meaning the shortcut should be rebuilt.
+    # Bash code is saved in string form to be executed later.
+    # When executed, it will require that the list of module files, $ordered_module_list, be set already.
+    ###########################################
+    local build_lua_record
+    # build_lua_record='/bin/ls -lL ${ordered_module_list[@]}; cat ${ordered_module_list[@]}'
+    build_lua_record="stat -c '%y'"' ${ordered_module_list[@]}; cat ${ordered_module_list[@]}'
+    
     ###########################################
     # Parse the arguments
     # 
@@ -461,7 +491,7 @@ EOF
     #
     # So if the user tries to use 'ml' in this way to unload 
     #  modules named 'h', 'hf', 'hn', 'hml', 'a', 'd', or 'r', this will get overridden by
-    #  the corresponding 'qml' operations. However, these are all non-destructive operations,
+    #  the corresponding 'mlq' operations. However, these are all non-destructive operations,
     #  and the user can still do the unloading with 'module unload <mod>'.
     ###########################################
 
@@ -497,7 +527,7 @@ EOF
             echo ''
             echo '  ml --list|-l                            List modulefiles for the loaded'
             echo '                                            shortcut (if any)'
-            echo '  ml --avail|-a                           List available shortcuts'
+            echo '  ml --exist|-e                           List available shortcuts'
             echo '  ml --delete|-d <shortcut_name>          Delete shortcut'
             echo '  ml --nuke                               Delete all shortcuts'
             echo '  ml --help|-h                            Short help message with examples'
@@ -583,10 +613,10 @@ EOF
     ###########################################
 
     ###########################################
-    # '--avail' option: list all available shortcuts, including prebuilt ones
+    # '--exist' option: list all available shortcuts, including prebuilt ones
     #  as well as custom-made shortcuts
     ###########################################
-    if [[ `printf '%s' "$1" | awk '($1 ~ "--a" && "--avail" ~ $1) || $1 == "-a" {print 1}'` ]]; then
+    if [[ `printf '%s' "$1" | awk '($1 ~ "--e" && "--exist" ~ $1) || $1 == "-e" {print 1}'` ]]; then
 
         # Find all prebuilt shortcuts that have been disabled (.mlq/*.d; strip off the trailing ".d")
         local disabled
@@ -702,37 +732,43 @@ EOF
         delete_shortcut=1
     fi
     
-    local need_to_build
-    local fall_back
-    local rebuild
+    ###########################################
+    # '--auto' option: build (if needed) & run an automatically named shortcut in one step
+    ###########################################
+    if [[ `printf '%s' "$1" | \
+       awk '($1 ~ "--a" && "--auto" ~ $1) \
+       	    || $1 == "-a" \
+       	    || ($1 ~ "--unsafe_a" && "--unsafe_auto" ~ $1) \
+            || $1 == "-ua" \
+              {print 1}'` ]] ; then	
+        request_type='auto'
 
-    need_to_build=
-    fall_back=
-    rebuild=
+        if [[ `printf '%s' "$1" | awk '($1 ~ "--unsafe_a" && "--unsafe_auto" ~ $1) || $1 == "-ua" {print 1}'` ]] ; then
+            safe_build=
+        fi
+        
+        if [[ $n_argin -lt 2 ]] ; then
+            echo "'"'--auto|--unsafe_auto'"'"' option: please give a list of module(s)'
+            return
+        fi	
+	shift	
+	shortcut_name=`echo "${@:1}"|awk '{sub("/","-",$0); gsub("[.]","_",$0); gsub("[ ]","___",$0); print $0}'`
+    fi
 
     ###########################################
     # '--build' option: specify a shortcut build
     ###########################################
-    local shortcut_name
-    local custom_name
-    local request_type
-    local safe_build
-    request_type='load'
-    custom_name=
-    safe_build=1
-    shortcut_name=
 
-    if [[ `printf '%s' "$1" | awk '($1 ~ "--b" && "--build" ~ $1) || $1 == "-b" || ($1 ~ "--ub" && "--unsafe_build" ~ $1) || $1 == "-ub" {print 1}'` ]] ; then
-        # build shortcut
+    if [[ `printf '%s' "$1" | awk '($1 ~ "--b" && "--build" ~ $1) || $1 == "-b" || ($1 ~ "--unsafe_b" && "--unsafe_build" ~ $1) || $1 == "-ub" {print 1}'` ]] ; then
+
         request_type='build'
-        need_to_build=1
 
         if [[ $n_argin -lt 2 ]] ; then
-            echo "'"'--build'"'"' option: please give a module, or shortcut + module(s)'
+            echo "'"'--build|unsafe_build'"'"' option: please give a module, or <shortcut name> <mod1> [<mod2> ...]'
             return
         fi
 
-        if [[ `printf '%s' "$1" | awk '($1 ~ "--ub" && "--unsafe_build" ~ $1) || $1 == "-ub" {print 1}'` ]] ; then
+        if [[ `printf '%s' "$1" | awk '($1 ~ "--unsafe_b" && "--unsafe_build" ~ $1) || $1 == "-ub" {print 1}'` ]] ; then
             safe_build=
         fi
         
@@ -794,7 +830,7 @@ EOF
 	collection_name=`echo "${shortcut_name}"|awk '{sub("/","-",$0); gsub("[.]","_",$0); print $0}'`
 
 	# Find out if the module includes a version name.
-	#  In this case, we need a make subdirectory
+	#  In this case, we need to make a subdirectory
 	local dir_t
 	local quikmod_top_dir
 	dir_t=(`echo "${shortcut_name}" | awk '{sub("/"," ", $0); print}'`)
@@ -825,6 +861,19 @@ EOF
 	shortcut_name_full='mlq-'"${shortcut_name}"
 	quikmod_lua="$target_dir/${shortcut_name_full}.lua"
 	prebuild_lua="${__mlq_prebuilds_dir}/${collection_name}/${shortcut_name_full}.lua"
+
+	# Get the lua filename for loading; this may be either the user one or the prebuilt one
+	#  (priority to the user one)
+	local load_lua
+	local load_dir
+	load_lua=
+	if [[ -f "${quikmod_lua}" ]] ; then
+            load_lua="${quikmod_lua}"
+            load_dir="${mlq_dir}"
+	elif [[ -f "${prebuild_lua}" ]] ; then
+            load_lua="${prebuild_lua}"
+            load_dir="${__mlq_prebuilds_dir}"
+	fi
     fi
     
     ###########################################
@@ -904,7 +953,7 @@ EOF
                 if [[ $confirm == [yY] || $confirm == [yY][eE][sS] ]]; then
                     __mlq_reset
                 else
-                    echo 'Canceled- doing nothing.'
+                    echo 'Canceled- nothing done.'
                     return
                 fi
             fi
@@ -941,7 +990,7 @@ EOF
 
             if [[ ! "$for_real" && ! "${disable_prebuild}" ]] ; then
                 if [[ ! -d "${target_dir}.d" ]] ; then
-                    echo 'Shortcut '"'"${shortcut_name}"'"' not found. Doing nothing.'
+                    echo 'Shortcut '"'"${shortcut_name}"'"' not found. Nothing done.'
                 else
                     echo 'Shortcut '"'"${shortcut_name}"'"' is already disabled. Use '"'"'-b'"'"' to re-enable'
                 fi
@@ -951,76 +1000,90 @@ EOF
     fi
     
     ###########################################
-    # Bash command to save file info, including the full contents, size, and date,
-    #  for the set of lua modulefiles that defines a shortcut; this is used 
-    #  to test if any of them changed, meaning the shortcut should be rebuilt.
-    # It requires that the list of module files, $ordered_module_list, be set already.
-    ###########################################
-    local build_lua_record
-    local ordered_module_list
-    # build_lua_record='/bin/ls -lL ${ordered_module_list[@]}; cat ${ordered_module_list[@]}'
-    build_lua_record="stat -c '%y'"' ${ordered_module_list[@]}; cat ${ordered_module_list[@]}'
-    
-    ###########################################
-    # If loading a shortcut, check if it needs to be rebuilt.
+    # If a shortcut already exists, check if it needs to be rebuilt.
     ###########################################
 
-    local load_lua
-    load_lua=
-    if [[ -f "${quikmod_lua}" ]] ; then
-        load_lua="${quikmod_lua}"
-        load_dir="${mlq_dir}"
-    elif [[ -f "${prebuild_lua}" ]] ; then
-        load_lua="${prebuild_lua}"
-        load_dir="${__mlq_prebuilds_dir}"
-    fi
-
-    ordered_module_list=
-    build_modpath="${mlq_user_orig_modpath}"
-
-    if [[ "${request_type}" == 'load' && -f "${load_lua}" ]]; then
+    if [[ -f "${load_lua}" && \
+	      ("${request_type}" == 'load' || "${request_type}" == 'build' || "${request_type}" == 'auto' ) ]]; then
 
         # Get previously saved, ordered list of modulefiles:
         ordered_module_list=(`cat "${load_lua%.*}".mod_list`)
         
-        ###########################################
-        # If the previously saved list is empty, need to rebuild
-        ###########################################
-        if [[ ! "${ordered_module_list[@]}" ]] ; then
+        if [[ "${request_type}" == 'load' && ! "${ordered_module_list[@]}" ]] ; then
             echo 'The previous shortcut build seems to have failed.'
-
-            # We cannot rebuild a module if the previous build attempt failed, so
-            #  fall back to ordinary module load
+            ###########################################
+            # We shall refuse to build a module unless we have saved info on how it
+	    #  was built (i.e., <shortcut>.mod_list needs to not be empty)
+            ###########################################
             fall_back=1
-        else
+        elif [[ "$(eval ${build_lua_record} | cmp ${load_lua%.*}.lua_record)" ]] ; then
             ###########################################
             # If the module files changed, need to rebuild
             ###########################################
-            if [ "$(eval ${build_lua_record} | cmp ${load_lua%.*}.lua_record)" ] ; then
+	    if [[ "${request_type}" == 'load' || "${request_type}" == 'auto' ]] ; then
                 echo 'This shortcut seems to be out of date. Trying to rebuild...'
-
-                # If the user requested a load but the shortcut is out of date, try to rebuild the shortcut.
-                # To do this, we first need to:
-                #  - Obtain the original shortcut module list as module_spec; 
-                #  - We also restore the modulepath from the shortcut in case a custom path was present
-                #    during the original shortcut build (i.e. if the user had previously done 'module use')
-                module_spec=(`cat "${load_lua%.*}".spec`)
-                build_modpath=(`cat "${load_lua%.*}".modpath`)
                 rebuild=1
             fi
-        fi
+        else
+	    # If a build is requested but things look up to date, optionally rebuild.
+	    #  We also skip this if the user deactivated the prebuilt shortcut; in the case, the
+	    #  prebuilt shortcut will reactivated in the next section
+            if [[ "${request_type}" == 'build' && ! -d "${target_dir}.d" ]] ; then
+		if [[ -f "${quikmod_lua}" ]] ; then 
+                    echo 'Prebuilt shortcut '"'"${shortcut_name}"'"' exists already and seems up to date;'
+                    ###########################################
+                    # If nothing changed, blow off the user's request
+                    #  (they can always manually delete)
+                    ###########################################
+                    echo 'Shortcut '"'"${shortcut_name}"'"' exists already and seems to be up to date; nothing done'
+                    return
+		else
+		    # The below line tests if we are in an interactive shell
+		    # We would like to keep slurm jobs, etc, from failing if they
+		    #  need to be updated
+		    if [[ $- == *i* && ! ( -p /dev/stdin ) ]] ; then
+			local confirm
+			read -p 'Are you sure you want to rebuild it? (Y/N): ' confirm
+			if [[ ! ( $confirm == [yY] || $confirm == [yY][eE][sS] ) ]]; then
+			    echo 'Canceled- nothing done.'
+			    return
+			fi
+			rebuild=1
+		    else
+			echo 'Non-interactive shell: nothing done.'
+			return
+		    fi
+		fi
+            fi
+	fi
     fi
 
     ###########################################
     # Build the shortcut, if needed
     ###########################################
 
-    if [[ "${request_type}" == 'build' && "${need_to_build}" \
+    # Special case: prebuilt shortcut exists but has been disabled
+    if [[ "${request_type}" == 'build' \
               && ! -f "${quikmod_lua}" && -d "${target_dir}.d" ]] ; then
         echo 'Re-enabled the prebuilt shortcut: '"'"${shortcut_name}"'."
         rmdir "${target_dir}.d"
-        
-    elif [[ ( "${request_type}" == 'build' && "${need_to_build}" ) || "${rebuild}" ]]; then
+        return
+	
+    # Builds are needed if (1) requested by --build ; (2) --auto requested and no shortcut exists;
+    #  or (3) a rebuild is needed
+    elif [[ "${request_type}" == 'build' \
+		|| ( "${request_type}" == 'auto' && ! -f "${load_lua}" ) \
+		|| "${rebuild}" ]]; then
+
+        if [[ "${rebuild}" ]] ; then
+            # If a rebuild is needed, we need to:
+            #  - Obtain the original shortcut module list as module_spec; 
+            #  - We also restore the modulepath from the shortcut in case a custom path was present
+            #    during the original shortcut build (i.e. if the user had previously done 'module use')
+            module_spec=(`cat "${load_lua%.*}".spec`)
+            build_modpath=(`cat "${load_lua%.*}".modpath`)
+	fi
+			
         if [[ "${custom_name}" ]] ; then
             printf '%s' 'Building custom-named shortcut for '"'""${shortcut_name}""'"
         else
@@ -1029,7 +1092,7 @@ EOF
         
         echo ' with included modules:'
         echo "${module_spec[@]}"
-        
+
         # Restore the modulepath from the shortcut in case a custom path was present
         #  during the original shortcut build (i.e. if the user had previously done 'module use')
         if [[ "${build_modpath}" ]] ; then
@@ -1039,24 +1102,6 @@ EOF
         local build_failed
         build_failed=
         
-        if [[ -f "${quikmod_lua}" && ! "${rebuild}" ]] ; then
-            echo 'The shortcut '"'"${shortcut_name}'"'' exists already.'
-
-            # The below line tests if we are in an interactive shell
-            # We would like to keep slurm jobs, etc, from failing if they
-            #  need to be updated
-            if [[ $- == *i* && ! ( -p /dev/stdin ) ]] ; then
-                local confirm
-                read -p 'Are you sure you want to rebuild it? (Y/N): ' confirm
-                if [[ ! ( $confirm == [yY] || $confirm == [yY][eE][sS] ) ]]; then
-                    # return
-                    build_failed=1
-                fi
-            else
-                echo 'Non-interactive shell: automatically proceeding'
-            fi
-        fi
-
         # Below, a 'while' statement is used in place of an 'if' statement.
         #  The while statement does not iterate because of the 'break' statement at the end.
         #  Rather, 'while' is used so it can be broken out of, if the shortcut build fails.
@@ -1225,7 +1270,7 @@ EOF
             echo ' done.'
 
             if [[ "${safe_build}" ]] ; then
-                if [ `awk 'BEGIN {sum=0} tolower($0) ~ "warn" {sum += NF} END {print sum}' "${quikmod_lua%.*}".warnings` -gt 0 ] ; then
+                if [[ `awk 'BEGIN {sum=0} tolower($0) ~ "warn" {sum += NF} END {print sum}' "${quikmod_lua%.*}".warnings` -gt 0 ]] ; then
                     echo ''
                     echo '###########################################'
                     echo '###########################################'
@@ -1394,7 +1439,7 @@ EOF
             # modfile_check=`__mlq_orig_module -I --redirect --location show "${module_spec[-1]}"`
             modfile_check=`__mlq_orig_module --redirect --location show "${module_spec[-1]}"`
             
-            if [ ! $( echo "${modfile_check}" "${ordered_module_list[-1]}" | awk '{ if($1 == $2) {print 1} else {print 0}}' ) -ne 0 ] ; then
+            if [[ ! $( echo "${modfile_check}" "${ordered_module_list[-1]}" | awk '{ if($1 == $2) {print 1} else {print 0}}' ) -ne 0 ]] ; then
 
                 echo ''
                 echo '###########################################'
@@ -1498,7 +1543,7 @@ EOF
 
         # If a rebuild was attempted after the user requested to load the shortcut,
         #  but the rebuild failed, we fall back to ordinary module loading.
-        if [[ "${build_failed}" && "${request_type}" == 'load' ]] ; then
+        if [[ "${build_failed}" && ( "${request_type}" == 'load' || "${request_type}" == 'auto' ) ]] ; then
             echo 'WARNING: Shortcut has failed, so falling back to ordinary module loading.'
             
             # Reset all modules to emulate the behavior of shortcut loading
@@ -1518,7 +1563,7 @@ EOF
     # If there is no shortcut, fall back to the lmod 'ml' command
     ###########################################
 
-    if [[ "${request_type}" == 'load' ]] ; then
+    if [[ "${request_type}" == 'load' || "${request_type}" == 'auto' ]] ; then
 
         if [[ "${load_lua}" && ! "${fall_back}" && ! -d "${target_dir}.d" ]] ; then
             ###########################################
