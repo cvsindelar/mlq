@@ -262,14 +262,35 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
         # fi
         
         if [[ ( "$1" == 'save' || "$1" == 's' ) ]] ; then
-            if [[ `__mlqs_active` ]] ; then
+	    local mlqs_active
+	    mlqs_active=`__mlqs_active`
+            if [[ "${mlqs_active}" ]] ; then
                 echo 'Sorry, shortcuts cannot be saved in an lmod collection'
                 echo 'To load a shortcut on login, you can put a line in your shell startup file (i.e., .bashrc):'
-                __mlqs_active | awk '{print "  ml mlq; ml " substr($1,5,length($1)-4)}'
+                echo "${mlqs_active}" | awk '{print "  ml mlq; ml " substr($1,5,length($1)-4)}'
                 return
             fi
         fi
-            
+
+	# If listing modules, check if ordinary modules and shortcuts are both present (shouldn't be!)
+        if [[ ( "$1" == 'list' || "$1" == 'l' ) ]] ; then
+            local mlqs_active
+            mlqs_active=`__mlqs_active`
+            if [[ "${mlqs_active}" ]]; then
+                if [[ `__mlq_orig_module --redirect -t list|grep -v StdEnv|grep -v '^mlq[-|/]'` ]] ; then
+                    echo '###########################################'
+                    echo '###########################################'
+                    echo '###########################################'
+                    echo 'WARNING: the mlq environment appears to be corrupted.'
+                    echo 'Additional modules are loaded on top of the shortcut' `echo "${mlqs_active}" | awk '{printf("'\'%s\'' ... ", substr($1,5,length($1)-4))}'`
+                    echo 'Results may not be predictable; recommend to do '"'"ml reset"'"' before proceeding.'
+                    echo '###########################################'
+                    echo '###########################################'
+                    echo '###########################################'
+                fi
+	    fi
+        fi
+	
         # echo '[mlq] Executing: module '"${@:1}"
         __mlq_orig_module "${@:1}"
     }
@@ -543,29 +564,14 @@ EOF
             
             # __mlq_orig_module --ignore_cache list # |& awk '$0 == "Currently Loaded Modules:" {getline; print}'
             local mlqs_active
-            mlqs_active=(`__mlqs_active`)
+            mlqs_active=`__mlqs_active`
             if [[ "${mlqs_active}" ]]; then
-                # Check if ordinary modules are also present (shouldn't be!)
-                if [[ `__mlq_orig_module --redirect -t list|grep -v StdEnv|grep -v '^mlq[-|/]'` ]] ; then
-                    echo '###########################################'
-                    echo '###########################################'
-                    echo '###########################################'
-                    echo 'WARNING: the mlq environment appears to be corrupted.'
-                    echo 'Additional modules are loaded on top of the shortcut' `__mlqs_active | awk '{printf("'\'%s\'' ... ", substr($1,5,length($1)-4))}'`
-                    echo 'Results may not be predictable; recommend to do '"'"ml reset"'"' before proceeding.'
-                    echo '###########################################'
-                    echo '###########################################'
-                    echo '###########################################'
-                    echo ''
-                fi
-
                 # Print the current shortcut name (take off the leading 'mlq-' from the folder name)
                 echo '[mlq] Current shortcut:' `echo "${mlqs_active}" | awk '{print substr($1,5,length($1)-4)}'`
                 echo ''
                 echo 'Use '"'"'ml reset'"'"' to turn off this shortcut.'
                 echo ''
             fi
-
             export MODULEPATH="${mlq_user_orig_modpath}"
         fi
         return
