@@ -530,6 +530,7 @@ EOF
             echo '  ml --exist|-e                           List available shortcuts'
             echo '  ml --delete|-d <shortcut_name>          Delete shortcut'
             echo '  ml --nuke                               Delete all shortcuts'
+	    echo '  ml --auto|-a <mod1> [<mod2> ...]        Build & run auto-named shortcut in one step'
             echo '  ml --help|-h                            Short help message with examples'
             echo '  ml --helpfull|-hf                       Print this help message'
             echo '  ml --help_ml|-hm                        Print help for '"'"'lmod'"'"' ml'
