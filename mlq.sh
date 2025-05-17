@@ -423,6 +423,7 @@ EOF
     mlq_dir="${HOME}"/.mlq
 
     mkdir -p "${mlq_dir}"
+    mkdir -p "${__mlq_prebuilds_dir}"
 
     local n_argin
     n_argin=$#
