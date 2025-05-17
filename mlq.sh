@@ -551,7 +551,7 @@ EOF
                     echo '###########################################'
                     echo 'WARNING: the mlq environment appears to be corrupted.'
                     echo 'Additional modules are loaded on top of the shortcut' `__mlqs_active | awk '{printf("'\'%s\'' ... ", substr($1,5,length($1)-4))}'`
-                    echo 'Results may not be predictable; recommend to do '"'"module reset"'"' before proceeding.'
+                    echo 'Results may not be predictable; recommend to do '"'"ml reset"'"' before proceeding.'
                     echo '###########################################'
                     echo '###########################################'
                     echo '###########################################'
@@ -1537,9 +1537,13 @@ EOF
                 echo ''
             else
                 echo 'An error occurred loading the shortcut. Falling back to ordinary module loading...'
+                module_spec=(`cat "${load_lua%.*}".spec`)
+                build_modpath=(`cat "${load_lua%.*}".modpath`)
                 fall_back=1
             fi
-        else
+        fi
+
+	if [[ ! "${load_lua}" || "${fall_back}" ]] ; then
         ###########################################
         # Ordinary module functions:
         # Something other than a shortcut; use 'lmod' 'ml' command
@@ -1551,7 +1555,7 @@ EOF
                 module ${module_spec[@]}
                 return
             fi
-            
+
             # Reset/restore/purge: use __mlq_reset to keep mlq around
             if [[ ${module_spec[0]} == 'restore' || ${module_spec[0]} == 'r' || \
                       ${module_spec[0]} == 'reset' || \
