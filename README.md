@@ -13,7 +13,7 @@ Under certain circumstances, loading of certain modules or module combinations w
 Example use cases:
 ```
 ml mlq                    # Loads the mlq module
-ml -a                     # Lists available shortcuts
+ml -e                     # Lists existing shortcuts
 ml -b R/4.4.1-foss-2022b  # Build a shortcut for R/4.4.1-foss-2022b
 ml R/4.4.1-foss-2022b     # Loads the R shortcut
 ml miniconda              # (if no 'miniconda' shortcut) uses lmod 'ml' to load the miniconda module
