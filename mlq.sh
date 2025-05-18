@@ -770,7 +770,7 @@ EOF
         fi
         
         if [[ $n_argin -lt 2 ]] ; then
-            echo "'"'--auto|--unsafe_auto'"'"' option: please give a list of module(s)'
+            echo "'"'--auto|--unsafe_auto'"'"' options: please give a list of module(s)'
             return
         fi
         shift
