@@ -137,6 +137,11 @@ function __mlqs_active() {
     echo ${mlqs_active[@]}
 }
 
+# Convert a space-separated list of module names into a string that works with lmod collections
+function __mlq_collection_name() {
+    echo "${@:1}" | awk '{sub("/","-",$0); gsub("[.]","_",$0); gsub("[ ]","___",$0); print $0}'
+}
+
 # Save the original 'module' functions code as __mlq_orig_module
 #  and __mlq_orig_ml
 # This is for restoring the 'module' functions upon unloading mlq,
@@ -231,7 +236,7 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
                           && "${__mlq_path}/${__mlq_version}.lua" == "${mlq_test[@]}" ]] ; then
                     echo '[mlq] module '"${__mlq_version}"' is already loaded, skipping...'
                 else
-                    good_mod_args=( $good_mod_args $mod_arg)
+                    good_mod_args=( ${good_mod_args[@]} $mod_arg)
                 fi
             done
 
@@ -262,8 +267,8 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
         # fi
         
         if [[ ( "$1" == 'save' || "$1" == 's' ) ]] ; then
-	    local mlqs_active
-	    mlqs_active=`__mlqs_active`
+            local mlqs_active
+            mlqs_active=`__mlqs_active`
             if [[ "${mlqs_active}" ]] ; then
                 echo 'Sorry, shortcuts cannot be saved in an lmod collection'
                 echo 'To load a shortcut on login, you can put a line in your shell startup file (i.e., .bashrc):'
@@ -272,7 +277,7 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
             fi
         fi
 
-	# If listing modules, check if ordinary modules and shortcuts are both present (shouldn't be!)
+        # If listing modules, check if ordinary modules and shortcuts are both present (shouldn't be!)
         if [[ ( "$1" == 'list' || "$1" == 'l' ) ]] ; then
             local mlqs_active
             mlqs_active=`__mlqs_active`
@@ -288,9 +293,9 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
                     echo '###########################################'
                     echo '###########################################'
                 fi
-	    fi
+            fi
         fi
-	
+        
         # echo '[mlq] Executing: module '"${@:1}"
         __mlq_orig_module "${@:1}"
     }
@@ -508,7 +513,7 @@ EOF
         
         if [[ ( `printf '%s' "$1" | awk '($1 ~ "--helpf" && "--helpfull" ~ $1) || $1 == "-hf"'` ) ]] ; then
             echo ' Usage: '
-            echo '  ml <shortcut name> | <module>           Activate shortcut if it exists;'
+            echo '  ml <shortcut name> | <mod1> [<mod2> ..] Activate shortcut if it exists;'
             echo '                                            otherwise load a module'
             echo ''
             echo '  ml [options] sub-command [args ...]     Runs the corresponding '"'"ml"'"' command'
@@ -526,12 +531,12 @@ EOF
             echo ''
             echo '  ml --list|-l                            List modulefiles for the loaded'
             echo '                                            shortcut (if any)'
-            echo '  ml --exist|-e                           List available shortcuts'
+            echo '  ml --exist|-e                           List existing shortcuts'
             echo '  ml --delete|-d <shortcut_name>          Delete shortcut'
             echo '  ml --nuke                               Delete all shortcuts'
             echo ''
-	    echo '  ml --auto|-a <mod1> [<mod2> ...]        Build & run auto-named shortcut in one step'
-	    echo '  ml --unsafe_auto|-ua <mod1> [<mod2>...] Same as --auto but without strict checking'
+            echo '  ml --auto|-a <mod1> [<mod2> ...]        Build & run auto-named shortcut in one step'
+            echo '  ml --unsafe_auto|-ua <mod1> [<mod2>...] Same as --auto but without strict checking'
             echo ''
             echo '  ml --help|-h                            Short help message with examples'
             echo '  ml --helpfull|-hf                       Print this help message'
@@ -593,7 +598,6 @@ EOF
         #  (if not, the welcome message will have been printed)
         ###########################################
         if [[ "${n_argin}" -eq 0 ]]; then
-            __mlq_orig_ml
             
             # __mlq_orig_module --ignore_cache list # |& awk '$0 == "Currently Loaded Modules:" {getline; print}'
             local mlqs_active
@@ -601,10 +605,14 @@ EOF
             if [[ "${mlqs_active}" ]]; then
                 # Print the current shortcut name (take off the leading 'mlq-' from the folder name)
                 echo '[mlq] Current shortcut:' `echo "${mlqs_active}" | awk '{print substr($1,5,length($1)-4)}'`
-                echo ''
-                echo 'Use '"'"'ml reset'"'"' to turn off this shortcut.'
-                echo ''
+                echo '  Use '"'"'ml reset'"'"' to turn off this shortcut.'
             fi
+
+            # Use lmod's module list but get rid of the trailing empty lines...
+            __mlq_orig_ml --redirect |head -n -2
+            # ..unless they weren't empty
+            __mlq_orig_ml --redirect |tail -2|awk 'NF > 0'
+            
             export MODULEPATH="${mlq_user_orig_modpath}"
         fi
         return
@@ -632,7 +640,7 @@ EOF
         #   strip out the module names, and print)
 
         ( \
-	 echo 'Available custom shortcuts:' ; \
+         echo 'Existing custom shortcuts:' ; \
          echo '' ; \
          find -L "${mlq_dir}" -name '*.lua' \
                 | awk '{sub("^.*[/][.]mlq[/][^/]*[/]mlq[-]","",$0); sub("[.]lua","",$0); print}' ; \
@@ -640,7 +648,7 @@ EOF
          echo 'System shortcuts:' ; \
          echo '' ; \
             ( \
-	     find -L "${__mlq_prebuilds_dir}" -name '*.lua' \
+             find -L "${__mlq_prebuilds_dir}" -name '*.lua' \
                 | awk -v disabled="$disabled" \
                       'BEGIN {nd=split(disabled,d)} \
                        { \
@@ -675,17 +683,17 @@ EOF
                 echo 'You have invoked '"'"mlq"'"' --nuke'
                 echo 'This will delete all '"'"mlq'"'' shortcuts.'
                 echo ' (note: a backup of your custom shortcuts will be saved to '~/mlq_bak' )'
-		
+                
                 local confirm
                 read -p 'Are you sure? (Y/N): ' confirm
                 if [[ $confirm == [yY] || $confirm == [yY][eE][sS] ]]; then
                     __mlq_reset
 
                     if [[ ! -z "${mlq_dir}" ]] ; then
-			echo ''
+                        echo ''
                         echo 'Your custom shortcuts have been saved to '~/mlq_bak
                         echo 'Use /bin/cp -r '~/mlq_bak'/<m> '"${mlq_dir}"' to restore one or more of these'
-			echo ''
+                        echo ''
                         mkdir -p ~/mlq_bak
                         /bin/cp -r "${mlq_dir}"/* ~/mlq_bak
                     fi
@@ -710,7 +718,7 @@ EOF
             echo 'Arguments after '"'"'--nuke'"'"' not understood!'
             return 1
         fi
-	return
+        return
     fi
     
     ###########################################
@@ -725,14 +733,25 @@ EOF
             echo "'"'--delete'"'"' option: please give a shortcut name'
             return
         fi
-        if [[ "${n_argin}" -gt 2 ]] ; then
-            echo 'Only one shortcut deletion is allowed at a time'
-            return
-        fi
+        # if [[ "${n_argin}" -gt 2 ]] ; then
+        #     echo 'Only one shortcut deletion is allowed at a time'
+        #     return
+        # fi
         shift
-        n_argin=1
+        (( n_argin=$n_argin-1 ))
             
         delete_shortcut=1
+    fi
+    
+    ###########################################
+    # '--list' option: list dependent modulefiles
+    ###########################################
+    local mlq_list
+    mlq_list=
+    if [[ `printf '%s' "$1" | awk '($1 ~ "--l" && "--list" ~ $1) || $1 == "-l" {print 1}'` ]]; then
+        mlq_list=1
+        shift
+	(( n_argin=$n_argin-1 ))
     fi
     
     ###########################################
@@ -740,10 +759,10 @@ EOF
     ###########################################
     if [[ `printf '%s' "$1" | \
        awk '($1 ~ "--a" && "--auto" ~ $1) \
-       	    || $1 == "-a" \
-       	    || ($1 ~ "--unsafe_a" && "--unsafe_auto" ~ $1) \
+            || $1 == "-a" \
+            || ($1 ~ "--unsafe_a" && "--unsafe_auto" ~ $1) \
             || $1 == "-ua" \
-              {print 1}'` ]] ; then	
+              {print 1}'` ]] ; then     
         request_type='auto'
 
         if [[ `printf '%s' "$1" | awk '($1 ~ "--unsafe_a" && "--unsafe_auto" ~ $1) || $1 == "-ua" {print 1}'` ]] ; then
@@ -753,11 +772,11 @@ EOF
         if [[ $n_argin -lt 2 ]] ; then
             echo "'"'--auto|--unsafe_auto'"'"' option: please give a list of module(s)'
             return
-        fi	
-	shift	
-	shortcut_name=`echo "${@:1}"|awk '{sub("/","-",$0); gsub("[.]","_",$0); gsub("[ ]","___",$0); print $0}'`
+        fi
+        shift
+	(( n_argin=$n_argin-1 ))
     fi
-
+    
     ###########################################
     # '--build' option: specify a shortcut build
     ###########################################
@@ -777,13 +796,17 @@ EOF
         
         # Shift the arguments so we are left with <shortcut name> [mod1 [mod2 ...]]
         shift
+	(( n_argin=$n_argin-1 ))
+	
         shortcut_name="$1"
 
         # Shift the arguments again so we are left with [mod1 [mod2 ...]]
         # If only 2 args given, i.e. '--build <mod>', we don't shift;
         #  shortcut name is the same as the module
-        if [[ $n_argin -gt 2 ]] ; then
+        if [[ $n_argin -gt 1 ]] ; then
             shift
+	    (( n_argin=$n_argin-1 ))
+	    
             custom_name=1
 
             # If the shortcut name appears as one of the listed modules, it
@@ -796,28 +819,20 @@ EOF
                 fi
             done
         fi
+    ###########################################
+    # All options processed; process the remaining arguments as module names
+    ###########################################
     elif [[ $n_argin -gt 1 ]] ; then
-        # if multiple modules given without '--build', the shortcut name is the module 
-        #  names strung together. This case is not currently relevant, since the user must 
-        #  explicitly specify shortcut names when there is more than one module.
+        # if multiple modules are given, the shortcut name is the module 
+        #  names strung together. This type of module is generated by '--auto'
 
-        shortcut_name=`echo "${@:1}"|awk '{sub("/","-",$0); gsub("[.]","_",$0); gsub(" ","___",$0); print $0}'`
+        shortcut_name=`__mlq_collection_name "${@:1}"`
         custom_name=1
     else
         # shortcut name is the same as the module name
         shortcut_name="$1"
     fi
 
-    ###########################################
-    # '--list' option: list dependent modulefiles
-    ###########################################
-    local mlq_list
-    mlq_list=
-    if [[ `printf '%s' "$1" | awk '($1 ~ "--l" && "--list" ~ $1) || $1 == "-l" {print 1}'` ]]; then
-        mlq_list=1
-	shift
-    fi
-    
     ###########################################
     # Define all the variable names and paths need for loading or building shortcuts/modules
     ###########################################
@@ -827,91 +842,76 @@ EOF
 
     # Only do the setup if any sort of loading or building is being done
     if [[ "${module_spec}" ]] ; then
-	
-	# Make a valid module collection name by getting rid of slashes and periods in $shortcut_name
-	local collection_name
-	collection_name=`echo "${shortcut_name}"|awk '{sub("/","-",$0); gsub("[.]","_",$0); print $0}'`
+        
+        # Make a valid module collection name by getting rid of slashes and periods in $shortcut_name
+        local collection_name
+        collection_name=`__mlq_collection_name "${shortcut_name}"`
 
-	# Find out if the module includes a version name.
-	#  In this case, we need to make a subdirectory
-	local dir_t
-	local quikmod_top_dir
-	dir_t=(`echo "${shortcut_name}" | awk '{sub("/"," ", $0); print}'`)
+        # Find out if the module includes a version name.
+        #  In this case, we need to make a subdirectory
+        local dir_t
+        local quikmod_top_dir
+        dir_t=(`echo "${shortcut_name}" | awk '{sub("/"," ", $0); print}'`)
 
-	if [[ ${#dir_t[@]} -gt 1 ]]; then
+        if [[ ${#dir_t[@]} -gt 1 ]]; then
             quikmod_top_dir='mlq-'"${dir_t[0]}"
-	else
+        else
             quikmod_top_dir=
-	fi
+        fi
 
-	# Define target_dir, which is where the shortcut info will be stored
-	local target_dir
-	target_dir="${mlq_dir}/${collection_name}"
+        # Define target_dir, which is where the shortcut info will be stored
+        local target_dir
+        target_dir="${mlq_dir}/${collection_name}"
 
-	# Define extended_target_dir, which also includes the module name if
-	#  there is a version subdirectory
-	local extended_target_dir
-	extended_target_dir="${target_dir}"
-	
-	if [[ "${quikmod_top_dir}" ]]; then
+        # Define extended_target_dir, which also includes the module name if
+        #  there is a version subdirectory
+        local extended_target_dir
+        extended_target_dir="${target_dir}"
+        
+        if [[ "${quikmod_top_dir}" ]]; then
             extended_target_dir="${extended_target_dir}/${quikmod_top_dir}"
-	fi
+        fi
 
-	# Get the lua filename, based on the full name which is mlq-<shortcut name>
-	local quikmod_lua
-	local shortcut_name_full
+        # Get the lua filename, based on the full name which is mlq-<shortcut name>
+        local quikmod_lua
+        local shortcut_name_full
 
-	shortcut_name_full='mlq-'"${shortcut_name}"
-	quikmod_lua="$target_dir/${shortcut_name_full}.lua"
-	prebuild_lua="${__mlq_prebuilds_dir}/${collection_name}/${shortcut_name_full}.lua"
+        shortcut_name_full='mlq-'"${shortcut_name}"
+        quikmod_lua="$target_dir/${shortcut_name_full}.lua"
+        prebuild_lua="${__mlq_prebuilds_dir}/${collection_name}/${shortcut_name_full}.lua"
 
-	# Get the lua filename for loading; this may be either the user one or the prebuilt one
-	#  (priority to the user one)
-	local load_lua
-	local load_dir
-	load_lua=
-	if [[ -f "${quikmod_lua}" ]] ; then
+        # Get the lua filename for loading; this may be either the user one or the prebuilt one
+        #  (priority to the user one)
+        local load_lua
+        local load_dir
+        load_lua=
+        load_dir=
+        if [[ -f "${quikmod_lua}" ]] ; then
             load_lua="${quikmod_lua}"
             load_dir="${mlq_dir}"
-	elif [[ -f "${prebuild_lua}" ]] ; then
+        elif [[ -f "${prebuild_lua}" ]] ; then
             load_lua="${prebuild_lua}"
             load_dir="${__mlq_prebuilds_dir}"
-	fi
+        fi
     fi
     
     ###########################################
     # List dependent modulefiles
     ###########################################
     if [[ "${mlq_list}" ]] ; then
-	local loaded_shortcut
-	loaded_shortcut=`__mlqs_active`
+        local loaded_shortcut
+        loaded_shortcut=`__mlqs_active`
         if [[ "${loaded_shortcut}" ]] ; then
-	    mod_file=`ml --redirect --location show "${loaded_shortcut}"`
+            mod_file=`ml --redirect --location show "${loaded_shortcut}"`
             local mod_list
             mod_list=("${mod_file%.*}".mod_list)
 
-	    # Below, strip off the leading 'mlq-' from the shortcut name for printing:
+            # Below, strip off the leading 'mlq-' from the shortcut name for printing:
             ( echo 'Modulefiles used for the shortcut '`echo "${loaded_shortcut}" | awk '{printf("'\'%s\'' :", substr($1,5,length($1)-4))}'` ; 
-	      echo '' ; \
-	      cat "${mod_list}" ; \
-	    ) \
-             | less -X --quit-if-one-screen
-	    
-            # shortcut_name=`__mlqs_active | awk '{print substr($1,5,length($1)-4)}'`
-            # collection_name=`echo "${shortcut_name}"|awk '{sub("/","-",$0); gsub("[.]","_",$0); print $0}'`
-            # If for whatever reason there were multiple mod_list files (should never happen),
-            #  we make sure the existence check would still work:
-            # mod_list=(`find "${mlq_dir}"/"${collection_name}"/ -name '*.mod_list'`)
-            # if [[ "${mod_list[-1]}" ]] ; then
-            #     echo 'Modulefiles used for shortcut '"${shortcut_name}" ':'
-            #     local m
-            #     for m in ${mod_list[@]} ; do
-            #         echo "From ${m}" ':'
-            #         echo ''
-            #         cat "${m}"
-            #         echo ''
-            #     done
-            # fi
+              echo '' ; \
+              cat "${mod_list}" ; \
+            ) \
+             | less -X --quit-if-one-screen         
         fi
         return
     fi
@@ -1007,7 +1007,7 @@ EOF
     ###########################################
 
     if [[ -f "${load_lua}" && \
-	      ("${request_type}" == 'load' || "${request_type}" == 'build' || "${request_type}" == 'auto' ) ]]; then
+              ("${request_type}" == 'load' || "${request_type}" == 'build' || "${request_type}" == 'auto' ) ]]; then
 
         # Get previously saved, ordered list of modulefiles:
         ordered_module_list=(`cat "${load_lua%.*}".mod_list`)
@@ -1016,23 +1016,23 @@ EOF
             echo 'The previous shortcut build seems to have failed.'
             ###########################################
             # We shall refuse to build a module unless we have saved info on how it
-	    #  was built (i.e., <shortcut>.mod_list needs to not be empty)
+            #  was built (i.e., <shortcut>.mod_list needs to not be empty)
             ###########################################
             fall_back=1
         elif [[ "$(eval ${build_lua_record} | cmp ${load_lua%.*}.lua_record)" ]] ; then
             ###########################################
             # If the module files changed, need to rebuild
             ###########################################
-	    if [[ "${request_type}" == 'load' || "${request_type}" == 'auto' ]] ; then
+            if [[ "${request_type}" == 'load' || "${request_type}" == 'auto' ]] ; then
                 echo 'This shortcut seems to be out of date. Trying to rebuild...'
                 rebuild=1
             fi
         else
-	    # If a build is requested but things look up to date, optionally rebuild.
-	    #  We also skip this if the user deactivated the prebuilt shortcut; in the case, the
-	    #  prebuilt shortcut will reactivated in the next section
+            # If a build is requested but things look up to date, optionally rebuild.
+            #  We also skip this if the user deactivated the prebuilt shortcut; in the case, the
+            #  prebuilt shortcut will reactivated in the next section
             if [[ "${request_type}" == 'build' && ! -d "${target_dir}.d" ]] ; then
-		if [[ -f "${quikmod_lua}" ]] ; then 
+                if [[ -f "${quikmod_lua}" ]] ; then 
                     echo 'Prebuilt shortcut '"'"${shortcut_name}"'"' exists already and seems up to date;'
                     ###########################################
                     # If nothing changed, blow off the user's request
@@ -1040,25 +1040,25 @@ EOF
                     ###########################################
                     echo 'Shortcut '"'"${shortcut_name}"'"' exists already and seems to be up to date; nothing done'
                     return
-		else
-		    # The below line tests if we are in an interactive shell
-		    # We would like to keep slurm jobs, etc, from failing if they
-		    #  need to be updated
-		    if [[ $- == *i* && ! ( -p /dev/stdin ) ]] ; then
-			local confirm
-			read -p 'Are you sure you want to rebuild it? (Y/N): ' confirm
-			if [[ ! ( $confirm == [yY] || $confirm == [yY][eE][sS] ) ]]; then
-			    echo 'Canceled- nothing done.'
-			    return
-			fi
-			rebuild=1
-		    else
-			echo 'Non-interactive shell: nothing done.'
-			return
-		    fi
-		fi
+                else
+                    # The below line tests if we are in an interactive shell
+                    # We would like to keep slurm jobs, etc, from failing if they
+                    #  need to be updated
+                    if [[ $- == *i* && ! ( -p /dev/stdin ) ]] ; then
+                        local confirm
+                        read -p 'Are you sure you want to rebuild it? (Y/N): ' confirm
+                        if [[ ! ( $confirm == [yY] || $confirm == [yY][eE][sS] ) ]]; then
+                            echo 'Canceled- nothing done.'
+                            return
+                        fi
+                        rebuild=1
+                    else
+                        echo 'Non-interactive shell: nothing done.'
+                        return
+                    fi
+                fi
             fi
-	fi
+        fi
     fi
 
     ###########################################
@@ -1071,12 +1071,12 @@ EOF
         echo 'Re-enabled the prebuilt shortcut: '"'"${shortcut_name}"'."
         rmdir "${target_dir}.d"
         return
-	
+        
     # Builds are needed if (1) requested by --build ; (2) --auto requested and no shortcut exists;
     #  or (3) a rebuild is needed
     elif [[ "${request_type}" == 'build' \
-		|| ( "${request_type}" == 'auto' && ! -f "${load_lua}" ) \
-		|| "${rebuild}" ]]; then
+                || ( "${request_type}" == 'auto' && ! -f "${load_lua}" ) \
+                || "${rebuild}" ]]; then
 
         if [[ "${rebuild}" ]] ; then
             # If a rebuild is needed, we need to:
@@ -1085,8 +1085,8 @@ EOF
             #    during the original shortcut build (i.e. if the user had previously done 'module use')
             module_spec=(`cat "${load_lua%.*}".spec`)
             build_modpath=(`cat "${load_lua%.*}".modpath`)
-	fi
-			
+        fi
+                        
         if [[ "${custom_name}" ]] ; then
             printf '%s' 'Building custom-named shortcut for '"'""${shortcut_name}""'"
         else
@@ -1534,6 +1534,13 @@ EOF
             # echo 'mlq '"${shortcut_name}"
             echo ''
 
+            # If building a shortcut for the first time, need to set load_lua and load_dir
+            #  for use in the upcoming shortcut loading step
+            if [[ "${request_type}" == 'auto' && ! "${load_lua}" ]] ; then
+                load_dir="${mlq_dir}"
+                load_lua="${quikmod_lua}"
+            fi
+            
             # Below, we break out of while statement;
             #  we never iterate, we just use it as an 'if' statement
             #  that can be broken out of
@@ -1567,7 +1574,6 @@ EOF
     ###########################################
 
     if [[ "${request_type}" == 'load' || "${request_type}" == 'auto' ]] ; then
-
         if [[ "${load_lua}" && ! "${fall_back}" && ! -d "${target_dir}.d" ]] ; then
             ###########################################
             # Load the shortcut
@@ -1598,14 +1604,14 @@ EOF
             fi
         fi
 
-	if [[ ! "${load_lua}" || "${fall_back}" ]] ; then
+        if [[ ! "${load_lua}" || "${fall_back}" ]] ; then
         ###########################################
-        # Ordinary module functions:
-        # Something other than a shortcut; use 'lmod' 'ml' command
+        # Ordinary module functions (anything other than a shortcut):
+        #  Use the 'lmod' 'ml' or 'module' commands
         ###########################################
 
-            # make sure the user doesn't use 'save' with a shortcut, which won't work
-            #  the mlq 'module' function handles this case
+            # Make sure the user doesn't use 'save' with a shortcut, which won't work
+            #  the 'module' function (with 'mlq' hooks) handles this case
             if [[ ( ${module_spec[0]} == 'save' || ${module_spec[0]} == 's' ) ]] ; then
                 module ${module_spec[@]}
                 return
