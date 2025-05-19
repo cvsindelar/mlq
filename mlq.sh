@@ -515,7 +515,7 @@ EOF
     local safe_build
     request_type='load'
     custom_name=
-    safe_build=1
+    safe_build=
     shortcut_name=
     
     local fall_back
@@ -576,8 +576,8 @@ EOF
             echo '                                           after the module'
             echo '                                           These will go in your shortcut library at:'
             echo '                                             '"'""${HOME}/.mlq""'"
-            echo '  ml --unsafe_build|-ub <module> | [<shortcut name> <module1> [<module2> ...]]'
-            echo '                                           Same as --build but without strict checking'
+            echo '  ml --safe_build|-ub <module> | [<shortcut name> <module1> [<module2> ...]]'
+            echo '                                           Same as --build but with strict checking'
             echo ''
             echo '  ml --list|-l                            List modulefiles for the loaded'
             echo '                                            shortcut (if any)'
@@ -586,7 +586,7 @@ EOF
             echo '  ml --nuke                               Delete all shortcuts'
             echo ''
             echo '  ml --auto|-a <mod1> [<mod2> ...]        Build & run auto-named shortcut in one step'
-            echo '  ml --unsafe_auto|-ua <mod1> [<mod2>...] Same as --auto but without strict checking'
+            echo '  ml --safe_auto|-sa <mod1> [<mod2>...]   Same as --auto but with strict checking'
             echo ''
             echo '  ml --help|-h                            Short help message with examples'
             echo '  ml --helpfull|-hf                       Print this help message'
@@ -624,12 +624,11 @@ EOF
             echo '   loading.'
             echo ''
             echo '  mlq is designed to work with 'well-behaved' modules; that is, where'
-            echo '   there are no version conflicts between the modules that a shortcut'
-            echo '   depends on. Strict checking of the modulefile tree is done to enforce'
-            echo '   this***. In some cases a conflict may be detected that can be safely'
-            echo '   ignored. If you are able to confidently establish that reported'
-            echo '   conflicts can be ignored, --unsafe_build can be used, which bypasses'
-            echo '   these safety checks.'
+            echo '   there are no version conflicts between the modules used by a shortcut'
+            echo '   Strict checking of the modulefile tree can be done to enforce'
+            echo '   this***; use the '"'"--safe_build"'"' and '"'"--safe_auto"'"' options'
+	    echo '   to enable strict checking. In some cases you may be able to establish '
+            echo '   that the reported conflicts are harmless and can be safely ignored.'
             echo ''
             echo '*** Checking is done by screening depends_on() statements in the modulefile lua codes.'
             echo ''
@@ -810,17 +809,17 @@ EOF
     if [[ `printf '%s' "$1" | \
        awk '($1 ~ "--a" && "--auto" ~ $1) \
             || $1 == "-a" \
-            || ($1 ~ "--unsafe_a" && "--unsafe_auto" ~ $1) \
-            || $1 == "-ua" \
+            || ($1 ~ "--safe_a" && "--safe_auto" ~ $1) \
+            || $1 == "-sa" \
               {print 1}'` ]] ; then     
         request_type='auto'
 
-        if [[ `printf '%s' "$1" | awk '($1 ~ "--unsafe_a" && "--unsafe_auto" ~ $1) || $1 == "-ua" {print 1}'` ]] ; then
-            safe_build=
+        if [[ `printf '%s' "$1" | awk '($1 ~ "--safe_a" && "--safe_auto" ~ $1) || $1 == "-sa" {print 1}'` ]] ; then
+            safe_build=1
         fi
         
         if [[ $n_argin -lt 2 ]] ; then
-            echo "'"'--auto|--unsafe_auto'"'"' options: please give a list of module(s)'
+            echo "'"'--auto|--safe_auto'"'"' options: please give a list of module(s)'
             return
         fi
         shift
@@ -831,17 +830,17 @@ EOF
     # '--build' option: specify a shortcut build
     ###########################################
 
-    if [[ `printf '%s' "$1" | awk '($1 ~ "--b" && "--build" ~ $1) || $1 == "-b" || ($1 ~ "--unsafe_b" && "--unsafe_build" ~ $1) || $1 == "-ub" {print 1}'` ]] ; then
+    if [[ `printf '%s' "$1" | awk '($1 ~ "--b" && "--build" ~ $1) || $1 == "-b" || ($1 ~ "--safe_b" && "--safe_build" ~ $1) || $1 == "-sb" {print 1}'` ]] ; then
 
         request_type='build'
 
         if [[ $n_argin -lt 2 ]] ; then
-            echo "'"'--build|unsafe_build'"'"' option: please give a module, or <shortcut name> <mod1> [<mod2> ...]'
+            echo "'"'--build|safe_build'"'"' option: please give a module, or <shortcut name> <mod1> [<mod2> ...]'
             return
         fi
 
-        if [[ `printf '%s' "$1" | awk '($1 ~ "--unsafe_b" && "--unsafe_build" ~ $1) || $1 == "-ub" {print 1}'` ]] ; then
-            safe_build=
+        if [[ `printf '%s' "$1" | awk '($1 ~ "--safe_b" && "--safe_build" ~ $1) || $1 == "-sb" {print 1}'` ]] ; then
+            safe_build=1
         fi
         
         # Shift the arguments so we are left with <shortcut name> [mod1 [mod2 ...]]
@@ -1101,7 +1100,6 @@ EOF
                         echo 'Non-interactive shell: nothing done.'
                         return
                     fi
-		    return
 		else
                     ###########################################
                     # If nothing changed, blow off the user's request
@@ -1132,12 +1130,15 @@ EOF
                 || "${rebuild}" ]]; then
 
         if [[ "${rebuild}" ]] ; then
-            # If a rebuild is needed, we need to:
+            # If a rebuild is needed and the user didn't specify modules, we need to:
             #  - Obtain the original shortcut module list as module_spec; 
             #  - We also restore the modulepath from the shortcut in case a custom path was present
             #    during the original shortcut build (i.e. if the user had previously done 'module use')
-            module_spec=(`cat "${load_lua%.*}".spec`)
-            build_modpath=(`cat "${load_lua%.*}".modpath`)
+
+	    if [[ ! ${module_spec[@]} ]] ; then
+		module_spec=(`cat "${load_lua%.*}".spec`)
+		build_modpath=(`cat "${load_lua%.*}".modpath`)
+	    fi
         fi
                         
         if [[ "${custom_name}" ]] ; then
@@ -1213,7 +1214,8 @@ EOF
                     echo '###########################################'
                     echo '###########################################'
                     echo '###########################################'
-                    echo 'WARNING: this shortcut was built with the '"'"'--unsafe_build'"'"' option. Rebuilding in the same manner'
+                    echo 'WARNING: this shortcut was built without safety checks'
+		    echo ' ('"'"'--safe_build/--safe_auto'"'"' options. Rebuilding in the same manner'
                     echo '###########################################'
                     echo '###########################################'
                     echo '###########################################'
@@ -1237,8 +1239,7 @@ EOF
                     echo '###########################################'
                     echo '###########################################'
                     echo ''
-                    echo 'ERROR: Consistency check failed.'
-                    echo 'If you would really like to build this shortcut, try the '"'"'--unsafe_build'"'"' option.'
+                    echo 'WARNING: Consistency check failed.'
                     echo ''
                     echo '###########################################'
                     echo '###########################################'
@@ -1246,8 +1247,8 @@ EOF
                     echo ''
                     
                     # return 1
-                    build_failed=1
-                    break
+                    # build_failed=1
+                    # break
                 fi
                 
                 echo ''     
@@ -1301,7 +1302,7 @@ EOF
 			echo ''
 			echo 'WARNING: could not load the original module(s):'
 			echo '  '"${failed_mods[@]}"
-			echo "'"Unsafe"'"' mode has been requested, so proceeding anyway!'
+			echo 'Safe mode is not requested, so proceeding anyway!'
 			echo ''
 			echo '###########################################'
 			echo '###########################################'
@@ -1326,29 +1327,28 @@ EOF
 			break
 		    fi
 		fi
-            echo ' done.'
 	    fi
-            if [[ "${safe_build}" ]] ; then
-                if [[ `awk 'BEGIN {sum=0} tolower($0) ~ "warn" {sum += NF} END {print sum}' "${quikmod_lua%.*}".warnings` -gt 0 ]] ; then
-                    echo ''
-                    echo '###########################################'
-                    echo '###########################################'
-                    echo '###########################################'
-                    echo ''
-                    echo 'ERROR: could not load the original module(s) cleanly.'
-                    echo 'The following warnings were reported:'
-                    echo ''
-                    cat "${quikmod_lua%.*}".warnings
-                    echo ''
-                    echo 'If you would really like to build this shortcut, try the '"'"'--unsafe_build'"'"' option.'
-                    echo '###########################################'
-                    echo '###########################################'
-                    echo '###########################################'
+	    
+	    echo ' done.'
+	    
+            if [[ `awk 'BEGIN {sum=0} tolower($0) ~ "warn" {sum += NF} END {print sum}' "${quikmod_lua%.*}".warnings` -gt 0 ]] ; then
+                echo ''
+                echo '###########################################'
+                echo '###########################################'
+                echo '###########################################'
+                echo ''
+                echo 'WARNING: could not load the original module(s) cleanly.'
+                echo 'The following warnings were reported:'
+                echo ''
+                cat "${quikmod_lua%.*}".warnings
+                echo ''
+                echo '###########################################'
+                echo '###########################################'
+                echo '###########################################'
 
-                    # return 1
-                    build_failed=1
-                    break
-                fi
+                # return 1
+                # build_failed=1
+                # break
             fi
 
             # Specify the location for module collection files.
@@ -1446,15 +1446,11 @@ EOF
                 break
             fi      
 
-            # Safety check: did all the requested modules make it into the 'mod_list' file?
-            # If not, the module load order is unrecoverable unless the last requested one is the one that's missing.
-            # Note: The below safety check should be redundant with the above strict consistency checks
+            # Sanity check: did all the requested modules make it into the 'mod_list' file?
             if [[ "${safe_build}" ]] ; then
                 echo 'Performing extra safety checks'
                 
-                #  The below, funky 'for' statement performs the safety check for all
-                #  but the last requested module, which is handled immediately afterwards.
-                for mod in ${module_spec[@]::${#module_spec[@]}-1} ; do         
+                for mod in ${module_spec[@]} ; do
                     # modfile_check=`__mlq_orig_module -I --redirect --location show "${mod}"`
                     modfile_check=`__mlq_orig_module --redirect --location show "${mod}"`
 
@@ -1463,67 +1459,14 @@ EOF
                         echo '###########################################'
                         echo '###########################################'
                         echo '###########################################'
-                        echo 'ERROR: the command '"'"'module load '"${mod}""'"' partially failed.'
-                        echo ' '"'"'module list'"'"' does not list this module afterwards.'
-                        echo ' The correct module load order therefore cannot be determined.'
-                        echo ''
-                        echo ' To confirm, do: '"'"'module reset; module load '"${mod}"'; module list'"'"
-                        echo ''
-                        echo ' Please compare with the shortcut module listing '"'""${quikmod_lua%.*}.mod_list""'" '.'
-                        echo ''
-                        echo ' Also check the original modulefile '"'""${modfile_check}""'" '.'
-                        echo ' Maybe it is an inappropriately named symbolic link?'
-                        echo ''
-                        echo 'If you would really like to build this shortcut, try the '"'"'--unsafe_build'"'"' option.'
-                        echo ''
-                        echo 'Exiting...'
+                        echo 'WARNING: the module '"'""${mod}""'"' was not successfully loaded.'
+                        echo ' ('"'"'module list'"'"' does not list this module after trying to load all modules).'
                         echo '###########################################'
                         echo '###########################################'
                         echo '###########################################'
                         echo ''
-
-                        export MODULEPATH="${mlq_user_orig_modpath}"
-                        
-                        # return 1
-                        build_failed=1
-                        break
                     fi
                 done
-            fi
-
-            # Check if the last requested file made it into the 'mod_list' file.
-            # If not, issue a warning and add it to the end of the file. We can
-            #  do this since it should always be executed at the very end.
-
-            # modfile_check=`__mlq_orig_module -I --redirect --location show "${module_spec[-1]}"`
-            modfile_check=`__mlq_orig_module --redirect --location show "${module_spec[-1]}"`
-            
-            if [[ ! $( echo "${modfile_check}" "${ordered_module_list[-1]}" | awk '{ if($1 == $2) {print 1} else {print 0}}' ) -ne 0 ]] ; then
-
-                echo ''
-                echo '###########################################'
-                echo '###########################################'
-                echo '###########################################'
-                echo 'WARNING: the command '"'"'module load '"${module_spec[-1]}""'"' partially failed.'
-                echo ' '"'"'module list'"'"' does not include this module at the end.'
-                echo ''
-                echo ' To confirm, do: '"'"'module reset; module load '"${mod}"'; module list'"'"
-                echo ''
-                echo ' Attempting to repair by including original modulefile:'
-                echo '   '"'""${modfile_check}""'"
-                echo ' at the end of the shortcut modulefile.'
-                echo ''
-                echo ' Note, the module and/or the derived shortcut may not unload cleanly.'
-                echo ''
-                echo ' Please compare with the shortcut module listing '"'""${quikmod_lua%.*}.mod_list""'"'.'
-                echo ''
-                echo ' Also check the original modulefile '"'""${modfile_check}""'"'.'
-                echo ' Maybe it is an inappropriately named symbolic link?'
-                echo '###########################################'
-                echo '###########################################'
-                echo '###########################################'
-                echo ''
-                echo "${modfile_check}" >> "${quikmod_lua%.*}.mod_list"
             fi
 
             # Record the shortcut environment for consistency checks, rebuilding ,etc.
