@@ -1269,33 +1269,65 @@ EOF
             printf '%s' 'Loading module(s): '
             echo "${module_spec_full[@]}" ' ...'
             
+            local retVal
             # __mlq_orig_module -I --redirect load ${module_spec_full[@]} >& "${quikmod_lua%.*}".warnings
             __mlq_orig_module --ignore_cache --redirect load ${module_spec_full[@]} >& "${quikmod_lua%.*}".warnings
-            
-            local retVal
             retVal=$?
-
+	    cat "${quikmod_lua%.*}".warnings
+            	    
             if [ "${retVal}" -ne 0 ]; then
-                echo ''
-                echo '###########################################'
-                echo '###########################################'
-                echo '###########################################'
-                echo ''
-                echo 'ERROR: could not load the original module(s). The offending command:'
-                echo '   ml '"${module_spec[@]}"
-                echo ''
-                echo '###########################################'
-                echo '###########################################'
-                echo '###########################################'
-                
-                export MODULEPATH="${mlq_user_orig_modpath}"
+		echo 'WARNING: Load failed. Retrying...'
+		
+		# One more heroic try; R, this is for you!
+		printf '' > "${quikmod_lua%.*}".warnings
+		local m
+		local failed_mods
+		failed_mods=
+		for m in ${module_spec_full[@]} ; do
+		    __mlq_orig_module --ignore_cache --redirect load "${m}" >& "${quikmod_lua%.*}".warnings 2>&1
+		    retVal=$?
+		    if [ "${retVal}" -ne 0 ]; then
+			failed_mods=( ${failed_mods[@]} "${m}" )
+		    fi
+		done
 
-                # return 1
-                build_failed=1
-                break
-            fi
+		# The following should always be true, since we already failed once:
+		if [[ ${#failed_mods} -gt 0 ]] ; then
+		    if [[ ! "${safe_build}" && ${#failed_mods} -lt ${#module_spec_full} ]] ; then
+			echo ''
+			echo '###########################################'
+			echo '###########################################'
+			echo '###########################################'
+			echo ''
+			echo 'WARNING: could not load the original module(s):'
+			echo '  '"${failed_mods[@]}"
+			echo "'"Unsafe"'"' mode has been requested, so proceeding anyway!'
+			echo ''
+			echo '###########################################'
+			echo '###########################################'
+			echo '###########################################'
+		    else
+			echo ''
+			echo '###########################################'
+			echo '###########################################'
+			echo '###########################################'
+			echo ''
+			echo 'ERROR: could not load the original module(s). The offending command:'
+			echo '   ml '"${module_spec[@]}"
+			echo ''
+			echo '###########################################'
+			echo '###########################################'
+			echo '###########################################'
+			
+			export MODULEPATH="${mlq_user_orig_modpath}"
+
+			# return 1
+			build_failed=1
+			break
+		    fi
+		fi
             echo ' done.'
-
+	    fi
             if [[ "${safe_build}" ]] ; then
                 if [[ `awk 'BEGIN {sum=0} tolower($0) ~ "warn" {sum += NF} END {print sum}' "${quikmod_lua%.*}".warnings` -gt 0 ]] ; then
                     echo ''
