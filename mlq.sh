@@ -1032,15 +1032,8 @@ EOF
             #  We also skip this if the user deactivated the prebuilt shortcut; in the case, the
             #  prebuilt shortcut will reactivated in the next section
             if [[ "${request_type}" == 'build' && ! -d "${target_dir}.d" ]] ; then
-                if [[ -f "${quikmod_lua}" ]] ; then 
+                if [[ ! -f "${quikmod_lua}" ]] ; then 
                     echo 'Prebuilt shortcut '"'"${shortcut_name}"'"' exists already and seems up to date;'
-                    ###########################################
-                    # If nothing changed, blow off the user's request
-                    #  (they can always manually delete)
-                    ###########################################
-                    echo 'Shortcut '"'"${shortcut_name}"'"' exists already and seems to be up to date; nothing done'
-                    return
-                else
                     # The below line tests if we are in an interactive shell
                     # We would like to keep slurm jobs, etc, from failing if they
                     #  need to be updated
@@ -1056,6 +1049,14 @@ EOF
                         echo 'Non-interactive shell: nothing done.'
                         return
                     fi
+		    return
+		else
+                    ###########################################
+                    # If nothing changed, blow off the user's request
+                    #  (they can always manually delete)
+                    ###########################################
+                    echo 'Shortcut '"'"${shortcut_name}"'"' exists already and seems to be up to date; nothing done'
+                    return
                 fi
             fi
         fi
