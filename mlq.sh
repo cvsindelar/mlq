@@ -1663,7 +1663,7 @@ EOF
             fi
         fi
 
-        if [[ ! "${load_lua}" || "${fall_back}" ]] ; then
+        if [[ ! "${load_lua}" || "${fall_back}" || -d "${target_dir}.d" ]] ; then
         ###########################################
         # Ordinary module functions (anything other than a shortcut):
         #  Use the 'lmod' 'ml' or 'module' commands
