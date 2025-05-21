@@ -151,13 +151,13 @@ function __mlq_active_modules() {
     module_candidates=(`__mlq_orig_module -t --redirect list|grep -v '^mlq[/]'`)
     for mod in ${module_candidates[@]} ; do
         # Look for 'imposter' modules that start with 'mlq-' but are not shortcuts
-	is_qmod=
-	if [[ `echo $mod | grep '^mlq[-]'` ]] ; then
+        is_qmod=
+        if [[ `echo $mod | grep '^mlq[-]'` ]] ; then
             mod_file=`__mlq_orig_module --redirect --location show "${mod}"`
             is_qmod=`echo "${mod_file}" | \
                       awk -v qhome="${HOME}"/.mlq/mlq -v qprebuilds="${__mlq_prebuild_dir}" \
                       '{ if(index($1,qhome) == 1 || index($1,qprebuilds) == 1) print(1); }'`
-	fi
+        fi
         
         if [[ ! "${is_qmod}"  ]] ; then
             if [[ ! "${modules_active[@]}" ]] ; then
@@ -183,7 +183,7 @@ function __mlq_collection_name() {
 #  the default version if possible.
 function __mlq_get_default_module() {
     if [[ $# -ne 1 ]] ; then
-	return
+        return
     fi
     
     # Getting the modulefile location will fill out the default version if needed
@@ -217,12 +217,12 @@ function __mlq_get_default_module() {
                      }
                  }')
         if [[ "${fullmod}" ]] ; then
-    	    echo "${fullmod}"
-	else
-	    echo "$1"
+            echo "${fullmod}"
+        else
+            echo "$1"
         fi
     else
-	echo "$1"
+        echo "$1"
     fi
 }
 
@@ -239,7 +239,7 @@ if [[ ! `type -t __mlq 2> /dev/null` == 'function' ]]; then
       echo 'ERROR: the mlq environment has become confused!'
       echo 'To restore normal module-loading behavior, you may need to'
       echo 'log out and log in again!'
-      return
+      return 1
   fi
 
   eval "$(echo "function __mlq_orig_module()"; declare -f module | tail -n +2)"
@@ -275,7 +275,7 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
         echo $3
         echo 'Usage:'
         echo    'source mlq.sh --mlq_load mlq/<version> <path-to-mlq-lua file>'
-        return
+        return 1
     else
         # Old way:
         # Get the path to the mlq lmod .lua file; this is stored in case
@@ -289,7 +289,7 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
             echo 'ERROR: path to the mlq module cannot be determined!'
             echo '(this should not happen)'
             unset __mlq_path
-            return
+            return 1
         fi
         __mlq_version="$2"
     fi
@@ -301,10 +301,13 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
         echo 'ERROR: the mlq environment has become very, very, very! confused!'
         echo 'To restore normal module-loading behavior, you may need to'
         echo 'log out and log in again!'
-        return
+        return 1
     fi
 
     function module() {
+	local retVal
+	retVal=0
+	
         # If doing 'module load', first unload any loaded shortcuts
         # We skip this if the first module argument is an unload request (starts with '-')
         if [[ "$1" == 'load' && $# -gt 1 ]] ; then
@@ -330,8 +333,9 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
 
                 echo '[mlq] Executing: module load '"${good_mod_args[@]}"
                 __mlq_orig_module load "${good_mod_args[@]}"
+		retVal=$?
             fi
-            return
+            return "${retVal}"
         fi
 
         # Shortcuts do not work when saved in collections. This is because when a collection
@@ -357,7 +361,7 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
                 echo 'Sorry, shortcuts cannot be saved in an lmod collection'
                 echo 'To load a shortcut on login, you can put a line in your shell startup file (i.e., .bashrc):'
                 echo "${mlqs_active}" | awk '{print "  ml mlq; ml " substr($1,5,length($1)-4)}'
-                return
+                return 1
             fi
         fi
 
@@ -382,11 +386,17 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
         
         # echo '[mlq] Executing: module '"${@:1}"
         __mlq_orig_module "${@:1}"
+	retVal="$?"
+        return "${retVal}"
     }
 
     # Add a hook to the 'ml' command to call __mlq
     function ml() {
+	local retval
+	retval=0
         __mlq "${@:1}"
+	retVal="$?"
+        return "${retVal}"
     }    
 else
     # Specify that mlq is not being loaded as an lmod module
@@ -394,9 +404,28 @@ else
     unset __mlq_path
 fi
 
+###########################################
+# YCRC FUDGE: The below variable switches on a 'fudge' for R modules in the YCRC system.
+# Synopsis: we relax our strict checking codes to let R/xxxx-bare substitute for R/xxxx
+#
+# The switch is very low-impact, since it just enables extra
+#  error-checking code. Leaving it off will cause certain YCRC module builds to fail
+#  unless the user selects --unsafe_build/--unsafe_auto.
+#
+# In the YCRC setup, R/xxxx modules replace themselves by R/xxxx-bare during module loading.
+# This is a necessary workaround so we can bundle extra modules CRAN and Bioconductor
+#  in the standard R module, while still using EasyBuild to make R (which we rename R/xxxx-bare).
+#  
+# An alternative would be to use mlq itself to substitute shortcuts for R/xxxx that include
+#  CRAN and Bioconductor. Then you could turn off this switch.
+###########################################
+export __mlq_ycrc_r_fudge_switch=1
+
 # If requested, remove all traces of mlq during the mlq module unload
 if [[ "$1" == "--mlq_unload" ]]; then
 
+    unset __mlq_ycrc_r_fudge_switch
+    
     # Unload all shortcuts first
     __mlq_shortcut_reset
     
@@ -408,7 +437,7 @@ if [[ "$1" == "--mlq_unload" ]]; then
             echo 'ERROR: the mlq environment has become really, really confused!'
             echo 'To restore normal module-loading behavior, you may need to'
             echo 'log out and log in again!'
-            return
+            return 1
         fi
                 
         # Restore the lmod 'ml' and 'module' commands
@@ -661,7 +690,7 @@ EOF
             echo '   there are no version conflicts between the modules used by a shortcut'
             echo '   Strict checking of the modulefile tree is done to enforce'
             echo '   this***; use the '"'"--unsafe_build"'"' and '"'"--unsafe_auto"'"' options'
-	    echo '   to disable strict checking. In some cases you may be able to establish '
+            echo '   to disable strict checking. In some cases you may be able to establish '
             echo '   that the reported conflicts are harmless and can be safely ignored.'
             echo ''
             echo '*** Checking is done by screening depends_on() statements in the modulefile lua codes.'
@@ -834,7 +863,7 @@ EOF
     if [[ `printf '%s' "$1" | awk '($1 ~ "--l" && "--list" ~ $1) || $1 == "-l" {print 1}'` ]]; then
         mlq_list=1
         shift
-	(( n_argin=$n_argin-1 ))
+        (( n_argin=$n_argin-1 ))
     fi
     
     ###########################################
@@ -857,7 +886,7 @@ EOF
             return
         fi
         shift
-	(( n_argin=$n_argin-1 ))
+        (( n_argin=$n_argin-1 ))
     fi
     
     ###########################################
@@ -879,18 +908,18 @@ EOF
         
         # Shift the arguments so we are left with <shortcut name> [mod1 [mod2 ...]]
         shift
-	(( n_argin=$n_argin-1 ))
-	
+        (( n_argin=$n_argin-1 ))
+        
         # shortcut_name="$1"
-	shortcut_name=`__mlq_get_default_module "$1"`
+        shortcut_name=`__mlq_get_default_module "$1"`
 
         # Shift the arguments again so we are left with [mod1 [mod2 ...]]
         # If only 2 args given, i.e. '--build <mod>', we don't shift;
         #  shortcut name is the same as the module
         if [[ $n_argin -gt 1 ]] ; then
             shift
-	    (( n_argin=$n_argin-1 ))
-	    
+            (( n_argin=$n_argin-1 ))
+            
             custom_name=1
 
             # If the shortcut name appears as one of the listed modules, it
@@ -909,13 +938,13 @@ EOF
     elif [[ $n_argin -gt 1 ]] ; then
         # if multiple modules are given, the shortcut name is the module 
         #  names strung together, but with characters "." and "/" substituted.
-	#  This type of module is generated by '--auto'
+        #  This type of module is generated by '--auto'
 
         shortcut_name=`__mlq_collection_name "${@:1}"`
         custom_name=1
     elif [[ $n_argin -gt 0 ]] ; then
         # shortcut name is the module name, with the default version included if possible
-	shortcut_name=`__mlq_get_default_module "$1"`
+        shortcut_name=`__mlq_get_default_module "$1"`
     fi
 
     ###########################################
@@ -1134,7 +1163,7 @@ EOF
                         echo 'Non-interactive shell: nothing done.'
                         return
                     fi
-		else
+                else
                     ###########################################
                     # If nothing changed, blow off the user's request
                     #  (they can always manually delete)
@@ -1168,16 +1197,16 @@ EOF
             #  - Obtain the original shortcut module list as module_spec; 
             #  - We also restore the modulepath from the shortcut in case a custom path was present
             #    during the original shortcut build (i.e. if the user had previously done 'module use')
-	    #  - Use the same safety mode
-	    if [[ ! ${module_spec[@]} ]] ; then
-		module_spec=(`cat "${load_lua%.*}".spec`)
-		build_modpath=(`cat "${load_lua%.*}".modpath`)
+            #  - Use the same safety mode
+            if [[ ! ${module_spec[@]} ]] ; then
+                module_spec=(`cat "${load_lua%.*}".spec`)
+                build_modpath=(`cat "${load_lua%.*}".modpath`)
                 if [[ -f "${load_lua%.*}".unsafe_build ]] ; then
                     echo '###########################################'
                     echo '###########################################'
                     echo '###########################################'
                     echo 'WARNING: this shortcut was built without safety checks'
-		    echo ' ('"'"'--unsafe_build/--unsafe_auto'"'"' options). Rebuilding in the same manner'
+                    echo ' ('"'"'--unsafe_build/--unsafe_auto'"'"' options). Rebuilding in the same manner'
                     echo '###########################################'
                     echo '###########################################'
                     echo '###########################################'
@@ -1186,7 +1215,7 @@ EOF
                 else
                     safe_build=1
                 fi
-	    fi
+            fi
         fi
                         
         if [[ "${custom_name}" ]] ; then
@@ -1227,7 +1256,6 @@ EOF
                 echo 'Current module path for this shortcut:'
                 echo $MODULEPATH
                 
-                # return 1
                 build_failed=1
                 break
             fi
@@ -1242,7 +1270,7 @@ EOF
             local module_spec_full
             module_spec_full=       
             for mod in ${module_spec[@]} ; do
-		fullmod=`__mlq_get_default_module "${mod}"`
+                fullmod=`__mlq_get_default_module "${mod}"`
                 module_spec_full=(${module_spec_full[@]} "${fullmod}")
             done
 
@@ -1258,31 +1286,35 @@ EOF
 
             # Strict checking for module loading consistency
             echo 'Strict module consistency check: ' "${module_spec_full[@]}"
-            mlq_check --ycrc_r_fudge "${module_spec_full[@]}"
+            if [[ "${__mlq_ycrc_r_fudge_switch}" ]] ; then
+                # YCRC fudge: we let R/xxxx-bare substitute for R/xxxx, because
+                #  this should be safe in our setup
+                mlq_check --ycrc_r_fudge "${module_spec_full[@]}"
+            else
+                mlq_check "${module_spec_full[@]}"
+            fi
             
             if [[ $? -ne 0 ]]; then
                 echo ''
                 echo '###########################################'
                 echo '###########################################'
                 echo '###########################################'
-                echo ''
-		if [[ "${safe_build}" ]] ; then
+                if [[ "${safe_build}" ]] ; then
                     echo 'ERROR: Consistency check failed.'
-		else
+                    echo 'If you really wish to proceed with shortcut building, turn off the safe option with:'
+                    echo '  --unsafe_build/--unsafe_auto'
+                else
                     echo 'WARNING: Consistency check failed.'
-		fi
-                echo 'If you really wish to proceed with shortcut building, turn off the safe option with:'
-		echo '  --unsafe_build/--unsafe_auto'
-                echo ''
+                fi
                 echo '###########################################'
                 echo '###########################################'
                 echo '###########################################'
                 echo ''
                 
-		if [[ "${safe_build}" ]] ; then
+                if [[ "${safe_build}" ]] ; then
                     build_failed=1
                     break
-		fi
+                fi
             fi
             
             echo ''     
@@ -1306,86 +1338,110 @@ EOF
             local retVal
             # __mlq_orig_module -I --redirect load ${module_spec_full[@]} >& "${quikmod_lua%.*}".warnings
             __mlq_orig_module --ignore_cache --redirect load ${module_spec_full[@]} >& "${quikmod_lua%.*}".warnings
-            retVal=$?
+            retVal="$?"
+	    
 	    cat "${quikmod_lua%.*}".warnings
-            	    
+
             if [ "${retVal}" -ne 0 ]; then
-		echo 'WARNING: Load failed. Retrying...'
-		
-		# One more heroic try; R, this is for you!
-		printf '' > "${quikmod_lua%.*}".warnings
-		local m
-		local failed_mods
-		failed_mods=
-		for m in ${module_spec_full[@]} ; do
-		    __mlq_orig_module --ignore_cache --redirect load "${m}" >& "${quikmod_lua%.*}".warnings 2>&1
-		    retVal=$?
-		    if [ "${retVal}" -ne 0 ]; then
-			failed_mods=( ${failed_mods[@]} "${m}" )
-		    fi
-		done
+                echo '###########################################'
+                echo '###########################################'
+                echo '###########################################'
+                echo 'WARNING: Load failed. Retrying...'
+                echo '###########################################'
+                echo '###########################################'
+                echo '###########################################'
+                
+                ###########################################
+                # One more heroic try; R, this is for you!
+                ###########################################
+                printf '' > "${quikmod_lua%.*}".warnings
+                local mod
+                local failed_mods
+                failed_mods=
+                for mod in ${module_spec_full[@]} ; do
+                    __mlq_orig_module --ignore_cache --redirect load "${mod}" >& "${quikmod_lua%.*}".warnings
+		    retVal="$?"
 
-		# The following should always be true, since we already failed once:
-		if [[ ${#failed_mods} -gt 0 ]] ; then
-		    if [[ ! "${safe_build}" && ${#failed_mods} -lt ${#module_spec_full} ]] ; then
-			echo ''
-			echo '###########################################'
-			echo '###########################################'
-			echo '###########################################'
-			echo ''
-			echo 'WARNING: could not load the original module(s):'
-			echo '  '"${failed_mods[@]}"
-			echo 'Safe mode is not requested, so proceeding anyway!'
-			echo ''
-			echo '###########################################'
-			echo '###########################################'
-			echo '###########################################'
-		    else
-			echo ''
-			echo '###########################################'
-			echo '###########################################'
-			echo '###########################################'
-			echo ''
-			echo 'ERROR: could not load the original module(s). The offending command:'
-			echo '   ml '"${module_spec[@]}"
-			echo 'If you really wish to proceed with shortcut building, turn off the safe option with:'
-			echo '  --unsafe_build/--unsafe_auto'
-			echo ''
-			echo '###########################################'
-			echo '###########################################'
-			echo '###########################################'
-			
-			export MODULEPATH="${mlq_user_orig_modpath}"
+		    cat "${quikmod_lua%.*}".warnings
+		    
+                    if [ "${retVal}" -ne 0 ]; then
+                        if [[ ! "${__mlq_ycrc_r_fudge_switch}" ]] ; then
+                            failed_mods=( ${failed_mods[@]} "${mod}" )
+                        else
+                            ###########################################
+                            # YCRC fudge: we let R/xxxx-bare substitute for R/xxxx, because
+                            #  this should be safe in our setup
+                            
+                            local name
+                            name="$(echo "$mod" | awk -F/ '{print $(NF-1)}')"
+			    
+                            if [[ ! ${name} == 'R' ]] ; then
+				failed_mods=( ${failed_mods[@]} "${mod}" )
+				echo ''
+			    else
+                                __mlq_orig_module --ignore_cache --redirect load "${mod}-bare"
+                                retVal=$?
+                                if [[ ${retVal} ]] ; then
+                                    echo '[YCRC fudge] Note: allowing module '"${mod}"'-bare to substitute for '"${mod}"
+                                else
+                                    failed_mods=( ${failed_mods[@]} "${mod}" )
+                                fi
+                            fi
+                            
+                            # YCRC fudge
+                            ###########################################
+                        fi
+                    fi
+                done
 
-			build_failed=1
-			break
-		    fi
+		# Don't proceed if no modules successfully loaded;
+		#  or if we are in safe mode and any modules failed to load
+		local failure_exit
+		failure_exit=
+                if [[ ( ${#failed_mods} == ${#module_spec_full} ) \
+			  || ( ${#failed_mods} -gt 0 && "${safe_build}" ) ]] ; then
+		    failure_exit=1
 		fi
-	    fi
-	    
-	    echo ' done.'
-	    
+
+		if [[ ${#failed_mods} -gt 0 ]] ; then
+                    echo ''
+                    echo '###########################################'
+                    echo '###########################################'
+                    echo '###########################################'
+		    if [[ "${failure_exit}" ]] ; then
+                        echo 'ERROR: could not load the original module(s):'
+		    else
+                        echo 'WARNING: could not load the original module(s):'
+		    fi
+                    echo '  '"${failed_mods[@]}"
+		    if [[ ! "${failure_exit}" ]] ; then
+                        echo 'Safe mode is not requested, so proceeding anyway!'
+		    fi
+                    echo '###########################################'
+                    echo '###########################################'
+                    echo '###########################################'
+                    
+		    if [[ "${failure_exit}" ]] ; then
+                        export MODULEPATH="${mlq_user_orig_modpath}"
+                        build_failed=1
+                        break
+		    fi
+                fi
+                # End of heroic try
+                ###########################################
+            fi
+            
+            echo ' done.'
+            
             if [[ `awk 'BEGIN {sum=0} tolower($0) ~ "warn" {sum += NF} END {print sum}' "${quikmod_lua%.*}".warnings` -gt 0 ]] ; then
                 echo ''
                 echo '###########################################'
                 echo '###########################################'
                 echo '###########################################'
-                echo ''
-                echo 'WARNING: could not load the original module(s) cleanly.'
-                echo 'If you really wish to proceed with shortcut building, turn off the safe option with:'
-		echo '  --unsafe_build/--unsafe_auto'
-                echo 'The following warnings were reported:'
-                echo ''
-                cat "${quikmod_lua%.*}".warnings
-                echo ''
+                echo 'NOTE: warnings were reported during module loading'
                 echo '###########################################'
                 echo '###########################################'
                 echo '###########################################'
-
-		if [[ "${safe_build}" ]] ; then
-                    build_failed=1
-                    break
-		fi
             fi
 
             # Specify the location for module collection files.
@@ -1460,7 +1516,7 @@ EOF
                 lua - | sort -n -k 1 | awk '{print $2}' | \
                 grep -v 'StdEnv[.]lua$' | awk '$0 !~ "/mlq/[^/]+[.]lua$"' | awk '$0 !~ "/mlq[.]lua$"' \
                                                > "${quikmod_lua%.*}".mod_list
-            /bin/rm ${collection_file}
+            # /bin/rm ${collection_file}
             
             ordered_module_list=(`cat "${quikmod_lua%.*}.mod_list"`)
             if [[ ! "${ordered_module_list[@]}" ]] ; then
@@ -1478,35 +1534,43 @@ EOF
 
                 export MODULEPATH="${mlq_user_orig_modpath}"
 
-                # return 1
                 build_failed=1
                 break
             fi      
 
             # Sanity check: did all the requested modules make it into the 'mod_list' file?
-            if [[ "${safe_build}" ]] ; then
-                echo 'Performing extra safety checks'
-                
-                for mod in ${module_spec_full[@]} ; do
-                    # modfile_check=`__mlq_orig_module -I --redirect --location show "${mod}"`
-                    modfile_check=`__mlq_orig_module --redirect --location show "${mod}"`
+            echo 'Performing extra safety checks'
+            
+            for mod in ${module_spec_full[@]} ; do
+                # modfile_check=`__mlq_orig_module -I --redirect --location show "${mod}"`
+                modfile_check=`__mlq_orig_module --redirect --location show "${mod}"`
 
-                    if [[ ! `awk -v mod="${modfile_check}" '$1 == mod {print 1}' "${quikmod_lua%.*}.mod_list"` ]] ; then
-			# YCRC fudge: we let R/xxxx-bare substitute for R/xxxx, because
-			#  this should be safe in our setup
-			local ycrc_fudge
-			ycrc_fudge=
-			local name
-			name="$(echo "$mod" | awk -F/ '{print $(NF-1)}')"
-			if [[ ${name} == 'R' ]] ; then
-			    modfile_check=`__mlq_orig_module --redirect --location show "${mod}-bare"`
-			    if [[ `awk -v mod="${modfile_check}" '$1 == mod {print 1}' "${quikmod_lua%.*}.mod_list"` ]] ; then
-				echo '[YCRC fudge] Note: allowing module '"${mod}"'-bare to substitute for '"${mod}"
-				ycrc_fudge=1
-			    fi
-			fi
-			    
-			if [[ ! ${ycrc_fudge} ]] ; then
+                # Print a warning if something didn't make it in
+                if [[ ! `awk -v mod="${modfile_check}" '$1 == mod {print 1}' "${quikmod_lua%.*}.mod_list"` ]] ; then
+                    if [[ ! "${__mlq_ycrc_r_fudge_switch}" ]] ; then
+                        if [[ "${safe_build}" ]] ; then
+                            build_failed=1
+                            break
+                        fi
+                    else
+                        ###########################################
+                        # YCRC fudge: we let R/xxxx-bare substitute for R/xxxx, because
+                        #  this should be safe in our setup
+                        
+                        local ycrc_r_fudge
+                        ycrc_r_fudge=
+                        local name
+                        name="$(echo "$mod" | awk -F/ '{print $(NF-1)}')"
+                        
+                        if [[ ${name} == 'R' ]] ; then
+                            modfile_check=`__mlq_orig_module --redirect --location show "${mod}-bare"`
+                            if [[ `awk -v mod="${modfile_check}" '$1 == mod {print 1}' "${quikmod_lua%.*}.mod_list"` ]] ; then
+                                echo '[YCRC fudge] Note: allowing module '"${mod}"'-bare to substitute for '"${mod}"
+                                ycrc_r_fudge=1
+                            fi
+                        fi
+                        
+                        if [[ ! ${ycrc_r_fudge} ]] ; then
                             echo ''
                             echo '###########################################'
                             echo '###########################################'
@@ -1517,11 +1581,19 @@ EOF
                             echo '###########################################'
                             echo '###########################################'
                             echo ''
-			fi
-                    fi
-                done
-            fi
 
+                            if [[ "${safe_build}" ]] ; then
+                                build_failed=1
+                                break
+                            fi
+                        fi
+                    fi
+                    
+                    # YCRC fudge
+                    ###########################################                 
+                fi
+            done
+        
             # Record the shortcut environment for consistency checks, rebuilding ,etc.
             if [[ ! "${safe_build}" ]] ; then
                 touch "${quikmod_lua%.*}".unsafe_build
@@ -1605,24 +1677,29 @@ EOF
 
         # If a rebuild was attempted after the user requested to load the shortcut,
         #  but the rebuild failed, we fall back to ordinary module loading.
-        if [[ "${build_failed}" && ( "${request_type}" == 'load' || "${request_type}" == 'auto' ) ]] ; then
-            echo '###########################################'
-            echo '###########################################'
-            echo '###########################################'
-            echo 'WARNING: Shortcut (re)build has failed, so falling back to ordinary module loading.'
-            echo '###########################################'
-            echo '###########################################'
-            echo '###########################################'
+        if [[ "${build_failed}" ]] ; then
+	    if [[ ( "${request_type}" == 'load' || "${request_type}" == 'auto' ) ]] ; then
+		echo '###########################################'
+		echo '###########################################'
+		echo '###########################################'
+		echo 'WARNING: Shortcut (re)build has failed, so falling back to ordinary module loading.'
+		echo '###########################################'
+		echo '###########################################'
+		echo '###########################################'
 
-            # Reset all modules to emulate the behavior of shortcut loading
-            fall_back=1
-            __mlq_reset
+		# Reset all modules to emulate the behavior of shortcut loading
+		fall_back=1
+		__mlq_reset
 
-            # Restore the modulepath from the shortcut in case a custom path was present
-            #  during the original shortcut build (i.e. if the user had previously done 'module use')
-            if [[ "${build_modpath}" ]] ; then
-                export MODULEPATH="${build_modpath}"
-            fi
+		# Restore the modulepath from the shortcut in case a custom path was present
+		#  during the original shortcut build (i.e. if the user had previously done 'module use')
+		if [[ "${build_modpath}" ]] ; then
+                    export MODULEPATH="${build_modpath}"
+		fi
+	    else
+		echo 'ERROR: Shortcut (re)build has failed. Exiting'
+		return 1
+	    fi
         fi          
     fi
     
@@ -1633,8 +1710,8 @@ EOF
     if [[ "${request_type}" == 'load' || "${request_type}" == 'auto' ]] ; then
         ###########################################
         # Below are the 3 conditions that need to be satisfied to proceed with shortcut loading:
-	#  (1) shortcut file must exist; (2) shortcut building, if it occurred, must have succeeded
- 	#  (3) the shortcut must not be disabled (disabled = ".d" empty directory present)
+        #  (1) shortcut file must exist; (2) shortcut building, if it occurred, must have succeeded
+        #  (3) the shortcut must not be disabled (disabled = ".d" empty directory present)
         ###########################################
         if [[ "${load_lua}" && ! "${fall_back}" && ! -d "${target_dir}.d" ]] ; then
             local spec
@@ -1667,10 +1744,10 @@ EOF
         # Ordinary module functions (anything other than a shortcut):
         #  Use the 'lmod' 'ml' or 'module' commands
         ###########################################
-	# Below covers all the cases not covered by the preceding if statement
- 	#  (Boolean negation of the logical statement)
-  	# We do not use 'else' here because shortcut loading in the above
-   	#  clause can fail, which causes $fall_back to be set after the first logical test
+        # Below covers all the cases not covered by the preceding if statement
+        #  (Boolean negation of the logical statement)
+        # We do not use 'else' here because shortcut loading in the above
+        #  clause can fail, which causes $fall_back to be set after the first logical test
         if [[ ! "${load_lua}" || "${fall_back}" || -d "${target_dir}.d" ]] ; then
 
             # Make sure the user doesn't use 'save' with a shortcut, which won't work
@@ -1722,11 +1799,11 @@ fi
 function mlq_check() {
 
     if [[ "$1" == '-h' || "$1" == '--help' ]] ; then
-	echo 'mlq_check: print module loading conflicts with strict consistency checking'
-	echo 'Usage: mlq_check | mlq_check <mod1> [<mod2> ...]'
-	echo ' No arguments: evaluate the current module environment'
-	echo ' With arguments: evaluate listed module environment'
-	return
+        echo 'mlq_check: print module loading conflicts with strict consistency checking'
+        echo 'Usage: mlq_check | mlq_check <mod1> [<mod2> ...]'
+        echo ' No arguments: evaluate the current module environment'
+        echo ' With arguments: evaluate listed module environment'
+        return
     fi
    
     local return_status
@@ -1738,11 +1815,11 @@ function mlq_check() {
     ycrc_r_fudge=
     # If no arguments given, check the current module environment
     if [[ "$#" -gt 0 ]] ; then
-	if [[ "$1" == '--ycrc_r_fudge' ]] ; then
-	    # Ugh
-	    ycrc_r_fudge='--ycrc_r_fudge'
-	    shift
-	fi
+        if [[ "$1" == '--ycrc_r_fudge' ]] ; then
+            # Ugh
+            ycrc_r_fudge='--ycrc_r_fudge'
+            shift
+        fi
         mlq_check_args="${@:1}"
     else
         mlq_check_args=`__mlq_orig_module --redirect -t list`
@@ -1785,9 +1862,9 @@ function __mlq_parse_module_tree_iter() {
     local ycrc_r_fudge
     ycrc_r_fudge=
     if [[ "$1" == '--ycrc_r_fudge' ]] ; then
-	# Ugh
-	ycrc_r_fudge='--ycrc_r_fudge'
-	shift
+        # Ugh
+        ycrc_r_fudge='--ycrc_r_fudge'
+        shift
     fi
     
     local callstack
@@ -1849,26 +1926,26 @@ function __mlq_parse_module_tree_iter() {
         # if [[ "${__mlq_module_version[$name]}" && "${__mlq_module_version[$name]}" != "$version" ]]; then
         if [[ "${__mlq_module_version[$name]}" && "${__mlq_module_file[$name]}" != "$modfile" ]] ; then
 
-	    # In the YCRC setup, R versions R/xxx and R/xxx-bare coexist although lmod
-	    #  will only load one of them at a time
-	    if [[ (  "${ycrc_r_fudge}" == '--ycrc_r_fudge' && "${name}" == 'R' ) \
-		      && (    "${version}" == "${__mlq_module_version[$name]}"'-bare' \
-			   || "${version}"'-bare' == "${__mlq_module_version[$name]}" ) ]] ; then
-		# Ugh
-		echo ''
-		echo '[YCRC fudge] Skipping R version non-conflict:'
-		echo "      R/${version}"
-		echo "      R/${__mlq_module_version[$name]}"
-	    else
-		echo ''
-		echo 'Conflict: Multiple version dependencies were found for ' "'"${name}"'" ':'
-		echo '     '"'"${version}"'"'(Call stack: '${callstack}' )'
-		echo '     File: '"${modfile}"
-		echo '                vs.'
-		echo '     '"'"${__mlq_module_version[$name]}"'"' (Call stack: '${__mlq_module_callstack[$name]}"'"
-		echo '     File: '"${__mlq_module_file[$name]}"
-		return_status=1
-	    fi
+            # In the YCRC setup, R versions R/xxx and R/xxx-bare coexist although lmod
+            #  will only load one of them at a time
+            if [[ (  "${ycrc_r_fudge}" == '--ycrc_r_fudge' && "${name}" == 'R' ) \
+                      && (    "${version}" == "${__mlq_module_version[$name]}"'-bare' \
+                           || "${version}"'-bare' == "${__mlq_module_version[$name]}" ) ]] ; then
+                # Ugh
+                echo ''
+                echo '[YCRC fudge] Skipping R version non-conflict:'
+                echo "      R/${version}"
+                echo "      R/${__mlq_module_version[$name]}"
+            else
+                echo ''
+                echo 'Conflict: Multiple version dependencies were found for ' "'"${name}"'" ':'
+                echo '     '"'"${version}"'"'(Call stack: '${callstack}' )'
+                echo '     File: '"${modfile}"
+                echo '                vs.'
+                echo '     '"'"${__mlq_module_version[$name]}"'"' (Call stack: '${__mlq_module_callstack[$name]}"'"
+                echo '     File: '"${__mlq_module_file[$name]}"
+                return_status=1
+            fi
         fi
 
         __mlq_module_version[$name]="$version"  # Track version
