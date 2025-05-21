@@ -1224,9 +1224,6 @@ EOF
             printf '%s' 'Building shortcut for '"'""${shortcut_name}""'"
         fi
         
-        echo ' with included modules:'
-        echo "${module_spec[@]}"
-
         # Restore the modulepath from the shortcut in case a custom path was present
         #  during the original shortcut build (i.e. if the user had previously done 'module use')
         if [[ "${build_modpath}" ]] ; then
@@ -1274,6 +1271,9 @@ EOF
                 module_spec_full=(${module_spec_full[@]} "${fullmod}")
             done
 
+            echo ' with included modules:'
+            echo "${module_spec_full[@]}"
+	    
             printf 'Purging any loaded modules...'
             __mlq_reset
             
