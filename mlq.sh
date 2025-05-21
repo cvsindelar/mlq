@@ -1168,10 +1168,24 @@ EOF
             #  - Obtain the original shortcut module list as module_spec; 
             #  - We also restore the modulepath from the shortcut in case a custom path was present
             #    during the original shortcut build (i.e. if the user had previously done 'module use')
-
+	    #  - Use the same safety mode
 	    if [[ ! ${module_spec[@]} ]] ; then
 		module_spec=(`cat "${load_lua%.*}".spec`)
 		build_modpath=(`cat "${load_lua%.*}".modpath`)
+                if [[ -f "${load_lua%.*}".unsafe_build ]] ; then
+                    echo '###########################################'
+                    echo '###########################################'
+                    echo '###########################################'
+                    echo 'WARNING: this shortcut was built without safety checks'
+		    echo ' ('"'"'--unsafe_build/--unsafe_auto'"'"' options). Rebuilding in the same manner'
+                    echo '###########################################'
+                    echo '###########################################'
+                    echo '###########################################'
+                    
+                    safe_build=
+                else
+                    safe_build=1
+                fi
 	    fi
         fi
                         
@@ -1242,53 +1256,36 @@ EOF
                 export MODULEPATH="${build_modpath}"
             fi
 
-            # If rebuilding, use the 'unsafe' way if that was how it was done originally
-            if [[ "${rebuild}" ]] ; then
-                if [[ -f "${load_lua%.*}".unsafe_build ]] ; then
-                    echo '###########################################'
-                    echo '###########################################'
-                    echo '###########################################'
-                    echo 'WARNING: this shortcut was built without safety checks'
-		    echo ' ('"'"'--unsafe_build/--unsafe_auto'"'"' options). Rebuilding in the same manner'
-                    echo '###########################################'
-                    echo '###########################################'
-                    echo '###########################################'
-                    
-                    safe_build=
-                else
-                    safe_build=1
-                fi
-            fi
-                        
             # Strict checking for module loading consistency
-            if [[ "${safe_build}" ]] ; then
-                # for mod in ${module_spec_full[@]} ; do
-
-                echo 'Strict module consistency check: ' "${module_spec_full[@]}"
-                mlq_check --ycrc_r_fudge "${module_spec_full[@]}"
-                
-                if [[ $? -ne 0 ]]; then
-                    echo ''
-                    echo '###########################################'
-                    echo '###########################################'
-                    echo '###########################################'
-                    echo ''
+            echo 'Strict module consistency check: ' "${module_spec_full[@]}"
+            mlq_check --ycrc_r_fudge "${module_spec_full[@]}"
+            
+            if [[ $? -ne 0 ]]; then
+                echo ''
+                echo '###########################################'
+                echo '###########################################'
+                echo '###########################################'
+                echo ''
+		if [[ "${safe_build}" ]] ; then
                     echo 'ERROR: Consistency check failed.'
-                    echo 'If you really wish to proceed with shortcut building, turn off the safe option with:'
-		    echo '  --unsafe_build/--unsafe_auto'
-                    # echo 'WARNING: Consistency check failed.'
-                    echo ''
-                    echo '###########################################'
-                    echo '###########################################'
-                    echo '###########################################'
-                    echo ''
-                    
+		else
+                    echo 'WARNING: Consistency check failed.'
+		fi
+                echo 'If you really wish to proceed with shortcut building, turn off the safe option with:'
+		echo '  --unsafe_build/--unsafe_auto'
+                echo ''
+                echo '###########################################'
+                echo '###########################################'
+                echo '###########################################'
+                echo ''
+                
+		if [[ "${safe_build}" ]] ; then
                     build_failed=1
                     break
-                fi
-                
-                echo ''     
+		fi
             fi
+            
+            echo ''     
 
             # Make the needed directories;
             #  Here we make it so that the target_dir can be a symbolic link to
@@ -1385,8 +1382,10 @@ EOF
                 echo '###########################################'
                 echo '###########################################'
 
-                build_failed=1
-                break
+		if [[ "${safe_build}" ]] ; then
+                    build_failed=1
+                    break
+		fi
             fi
 
             # Specify the location for module collection files.
@@ -1717,6 +1716,14 @@ fi
 
 function mlq_check() {
 
+    if [[ "$1" == '-h' || "$1" == '--help' ]] ; then
+	echo 'mlq_check: print module loading conflicts with strict consistency checking'
+	echo 'Usage: mlq_check | mlq_check <mod1> [<mod2> ...]'
+	echo ' No arguments: evaluate the current module environment'
+	echo ' With arguments: evaluate listed module environment'
+	return
+    fi
+   
     local return_status
     return_status=
     
