@@ -1628,15 +1628,16 @@ EOF
     fi
     
     ###########################################
-    # Load the shortcut (or perform 'ml' command)
-    # If there is no shortcut, fall back to the lmod 'ml' command
+    # Do shortcut or module loading
     ###########################################
 
     if [[ "${request_type}" == 'load' || "${request_type}" == 'auto' ]] ; then
+        ###########################################
+        # Below are the 3 conditions that need to be satisfied to proceed with shortcut loading:
+	#  (1) shortcut file must exist; (2) shortcut building, if it occurred, must have succeeded
+ 	#  (3) the shortcut must not be disabled (disabled = ".d" empty directory present)
+        ###########################################
         if [[ "${load_lua}" && ! "${fall_back}" && ! -d "${target_dir}.d" ]] ; then
-            ###########################################
-            # Load the shortcut
-            ###########################################
             local spec
             spec=`awk '{printf("\n"); for(i=1; i <= NF-1; ++i) printf("%s, ", $i); printf($i)}' "${load_lua%.*}".spec`
 
@@ -1663,11 +1664,15 @@ EOF
             fi
         fi
 
-        if [[ ! "${load_lua}" || "${fall_back}" || -d "${target_dir}.d" ]] ; then
         ###########################################
         # Ordinary module functions (anything other than a shortcut):
         #  Use the 'lmod' 'ml' or 'module' commands
         ###########################################
+	# Below covers all the cases not covered by the preceding if statement
+ 	#  (Boolean negation of the logical statement)
+  	# We do not use 'else' here because shortcut loading in the above
+   	#  clause can fail, which causes $fall_back to be set after the first logical test
+        if [[ ! "${load_lua}" || "${fall_back}" || -d "${target_dir}.d" ]] ; then
 
             # Make sure the user doesn't use 'save' with a shortcut, which won't work
             #  the 'module' function (with 'mlq' hooks) handles this case
