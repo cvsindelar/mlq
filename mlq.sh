@@ -194,15 +194,19 @@ function __mlq_get_default_module() {
     if [[ $# -ne 1 ]] ; then
         return
     fi
+
+    local mod
+    # Below: strip spaces out of our arguments, in case ahem OnDemand gives space-ful ones
+    mod=`echo $1`
     
     # Getting the modulefile location will fill out the default version if needed
     local modfile
-    modfile=`(__mlq_orig_module --redirect --location show "$1"|awk 'NF == 1') 2> /dev/null`
+    modfile=`(__mlq_orig_module --redirect --location show "${mod}"|awk 'NF == 1') 2> /dev/null`
     
     #  Combine info from the possibly versionless module name together
     #  with the module filename.
     if [[ ${modfile} ]] ; then
-        fullmod=$(echo "$modfile" | awk -v modname="$1" '
+        fullmod=$(echo "$modfile" | awk -v modname="${mod}" '
                    function escape_regex(s,    i, c, out, specials) {
                      specials = "\\.^$*+?()[]{}|";
                      out = "";
@@ -228,10 +232,10 @@ function __mlq_get_default_module() {
         if [[ "${fullmod}" ]] ; then
             echo "${fullmod}"
         else
-            echo "$1"
+            echo "${mod}"
         fi
     else
-        echo "$1"
+        echo "${mod}"
     fi
 }
 
@@ -364,7 +368,7 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
         #  Then, unloading of the old mlq can occur, which unloads the newly
         #  restored shortcut!!
         # The following code could address the second problem, but not the first:
-        # if [[ "$1" == 'restore' || "$1" == "r" ]] ; then
+        # if [[ "$1" == 'restore' || "$1" == 'r' ]] ; then
         #     __mlq_orig_module unload ${__mlq_version} >& /dev/null        
         # fi
         
@@ -1687,11 +1691,10 @@ EOF
                 echo ${mod} >> "${quikmod_lua%.*}".spec
             done
             
-            echo ''
+	    echo "${mlq_logo}"
             echo 'Shortcut '"'""${shortcut_name}""'"' is now available.'
             # echo 'mlq '"${shortcut_name}"
             echo ''
-	    echo um "${build_failed}" ummmmmm
             # If building a shortcut for the first time, need to set load_lua and load_dir
             #  for use in the upcoming shortcut loading step
             if [[ "${request_type}" == 'auto' && ! "${load_lua}" ]] ; then
