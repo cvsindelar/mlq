@@ -706,8 +706,7 @@ EOF
         elif [[ ( `printf '%s' "$1" | awk '($1 ~ "--help_m" && "--help_ml" ~ $1) || $1 == "-hm"'` ) ]] ; then
             __mlq_orig_ml -h
         elif [[ $n_argin -gt 0 ]] ; then
-            # echo "${mlq_welcome}"
-            echo "${__mlq_logo}""${mlq_welcome}"
+            echo "${mlq_logo}""${mlq_welcome}"
             echo 'Use '"'"'--helpfull'"'"'|'"'"'-hf'"'"' for full instructions.'
             echo 'Use '"'"'--help_ml'"'"'|'"'"'-hm'"'"' for help with '"'"'lmod'"'"' ml'
             echo ''
