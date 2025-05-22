@@ -26,6 +26,15 @@ if [[ "$0" == "${BASH_SOURCE}" ]]; then
     exit
 fi
 
+IFS='' read -r -d '' __mlq_moo <<"EOF"
+           (__)
+           (@@)
+    /##--##-\#)
+   / ###  # |  
+  *  ||ww--||  
+     ^^    ^^  
+EOF
+
 ###########################################
 ###########################################
 ###########################################
@@ -236,6 +245,7 @@ function __mlq_get_default_module() {
 # If __mlq function is not defined, this is the first time mlq has been loaded.
 if [[ ! `type -t __mlq 2> /dev/null` == 'function' ]]; then
   if [[ `declare -f module | grep mlq` ]] ; then
+      echo "${__mlq_moo}"
       echo 'ERROR: the mlq environment has become confused!'
       echo 'To restore normal module-loading behavior, you may need to'
       echo 'log out and log in again!'
@@ -257,6 +267,7 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
     
     # echo Loading mlq
     if [[ ! $# != 4 ]] ; then
+	echo "${__mlq_moo}"
         echo 'Usage:'
         echo    'source mlq.sh --mlq_load mlq/<version> <path-to-mlq-lua file>'
         return
@@ -271,6 +282,7 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
 
     # Check if the file exists and if the module path was identified correctly
     if [[ ! -f "$3" || ! "${__mlq_path}" ]]; then
+	echo "${__mlq_moo}"
         echo 'ERROR: mlq module '"'""$2""'"' not found.'
         echo $3
         echo 'Usage:'
@@ -286,6 +298,7 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
         # Extract the path from the full filename
         # __mlq_path=`echo "$3"|awk '{n=sub("/mlq/[^/]+[.]lua$","",$0); if(!n) n=sub("/mlq[.]lua$","",$0); if(n) print}'`
         if [[ ! ${__mlq_path} ]] ; then
+	    echo "${__mlq_moo}"
             echo 'ERROR: path to the mlq module cannot be determined!'
             echo '(this should not happen)'
             unset __mlq_path
@@ -298,6 +311,7 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
     #  before proceeding. This avoids mixing modules with shortcuts.
 
     if [[ `declare -f __mlq_orig_module | grep -v __mlq_orig_module | grep mlq` ]] ; then
+	echo "${__mlq_moo}"
         echo 'ERROR: the mlq environment has become very, very, very! confused!'
         echo 'To restore normal module-loading behavior, you may need to'
         echo 'log out and log in again!'
@@ -358,6 +372,7 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
             local mlqs_active
             mlqs_active=`__mlqs_active`
             if [[ "${mlqs_active}" ]] ; then
+		echo "${__mlq_moo}"
                 echo 'Sorry, shortcuts cannot be saved in an lmod collection'
                 echo 'To load a shortcut on login, you can put a line in your shell startup file (i.e., .bashrc):'
                 echo "${mlqs_active}" | awk '{print "  ml mlq; ml " substr($1,5,length($1)-4)}'
@@ -434,6 +449,7 @@ if [[ "$1" == "--mlq_unload" ]]; then
     #  also exist
     if [[ `type -t __mlq 2> /dev/null` == 'function' ]] ; then
         if [[ `declare -f __mlq_orig_module | grep -v __mlq_orig_module | grep mlq` ]] ; then
+	    echo "${__mlq_moo}"
             echo 'ERROR: the mlq environment has become really, really confused!'
             echo 'To restore normal module-loading behavior, you may need to'
             echo 'log out and log in again!'
@@ -460,8 +476,7 @@ if [[ "$1" == "--mlq_unload" ]]; then
     unset __mlq_base_dir
     unset __mlq_prebuilds_dir
 
-    unset __mlq_logo
-    unset __mlq_logo2
+    unset __mlq_moo
     unset __mlq_welcome
     
     unset -f mlq_check
@@ -473,7 +488,7 @@ if [[ "$1" == "--mlq_unload" ]]; then
     unset __mlq_expected_versions
 
     echo '[mlq] Goodbye! To restore fast module loading, do: '"'"ml mlq"'"
-    # echo "${__mlq_logo2}"
+    # echo "${__mlq_moo}"
 
     return
 fi
@@ -481,44 +496,6 @@ fi
 # Location of the script and its default shortcut library
 __mlq_base_dir="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 __mlq_prebuilds_dir="${__mlq_base_dir}/mlq_prebuilds"
-
-IFS='' read -r -d '' __mlq_logo <<"EOF"
-            (~~) 
-           <(@@) 
-  *---##--##-\#) 
-      |##  # |_  
-   ;_//ww---- \\ 
-               ^^
-EOF
-
-IFS='' read -r -d '' __mlq_logo2 <<"EOF"
-           (__)
-           (@@)
-    /##--##-\#)
-   / ###  # |  
-  *  ||ww--||  
-     ^^    ^^  
-EOF
-
-# Welcome message
-IFS='' read -r -d '' __mlq_welcome <<"EOF"
-mlq: module loader-quick
-https://github.com/cvsindelar/mlq
-
-'ml' works the same as before, except that selected modules will now be loaded as fast 'shortcuts'
-
-Note: shortcut modules work only by themselves, not with other modules
-
-To build new shortcuts do, i.e.:
-  ml -b SciPy-bundle/2023.02-gfbf-2022b   Builds 'generic' shortcut for SciPy-bundle
-  ml -b rel5 RELION/5.0.0-foss-2022b-CUDA-12.0.0 IMOD/4.12.62_RHEL8-64_CUDA12.0 Emacs/28.2-GCCcore-12.2.0
-                                          Builds a custom-named 3-module shortcut, 'rel5'
-
-To load modules the ordinary way:          'module load <mod>'
-To list existing shortcuts:                'ml -e'
-To unload all modules/shortcuts from mlq:  'ml reset'
-To exit mlq:                               'ml -mlq', 'module unload mlq', or module reset/purge/restore/r'
-EOF
 
 if [[ ! ${__mlq_loaded} ]] ; then
     echo 'Fast module loading is now enabled.'
@@ -546,10 +523,20 @@ __mlq_loaded=1
 
 function __mlq() {
 
+    local mlq_logo
+IFS='' read -r -d '' mlq_logo <<"EOF"
+            (~~) 
+           <(@@) 
+  *---##--##-\#) 
+      |##  # |_  
+   ;_//ww---- \\ 
+               ^^
+EOF
+    
     # Fancier logo (as if)
     # Font source: https://patorjk.com/software/taag/#p=display&f=Diet%20Cola&t=mlq
-    local __mlq_diet_cola
-    IFS='' read -r -d '' __mlq_diet_cola <<"EOF"
+    local mlq_diet_cola
+    IFS='' read -r -d '' mlq_diet_cola <<"EOF"
             (~~)                         
            <(@@)                  /      
      /##--##-\#)    .  .-. .-.   / .-.   
@@ -623,7 +610,28 @@ EOF
                                      ($1 ~ "--help_m" && "--help_ml" ~ $1) || \
                                      ($1 == "-h" || $1 == "-hf" || $1 == "-hn" || $1 == "-hm") || \
                                      $1 == "show-all-if-ambiguous" '` ) || ( "${n_argin}" -eq 0 )  ]] ; then
-        
+
+        local mlq_welcome
+# Welcome message
+	IFS='' read -r -d '' mlq_welcome <<"EOF"
+mlq: module loader-quick
+https://github.com/cvsindelar/mlq
+
+'ml' works the same as before, except that selected modules will now be loaded as fast 'shortcuts'
+
+Note: shortcut modules work only by themselves, not with other modules
+
+To build new shortcuts do, i.e.:
+  ml -b SciPy-bundle/2023.02-gfbf-2022b   Builds 'generic' shortcut for SciPy-bundle
+  ml -b rel5 RELION/5.0.0-foss-2022b-CUDA-12.0.0 IMOD/4.12.62_RHEL8-64_CUDA12.0 Emacs/28.2-GCCcore-12.2.0
+                                          Builds a custom-named 3-module shortcut, 'rel5'
+
+To load modules the ordinary way:          'module load <mod>'
+To list existing shortcuts:                'ml -e'
+To unload all modules/shortcuts from mlq:  'ml reset'
+To exit mlq:                               'ml -mlq', 'module unload mlq', or module reset/purge/restore/r'
+EOF
+
         if [[ ( `printf '%s' "$1" | awk '($1 ~ "--helpf" && "--helpfull" ~ $1) || $1 == "-hf"'` ) ]] ; then
             echo ' Usage: '
             echo '  ml <shortcut name> | <mod1> [<mod2> ..] Activate shortcut if it exists;'
@@ -698,8 +706,8 @@ EOF
         elif [[ ( `printf '%s' "$1" | awk '($1 ~ "--help_m" && "--help_ml" ~ $1) || $1 == "-hm"'` ) ]] ; then
             __mlq_orig_ml -h
         elif [[ $n_argin -gt 0 ]] ; then
-            # echo "${__mlq_welcome}"
-            echo "${__mlq_logo}""${__mlq_welcome}"
+            # echo "${mlq_welcome}"
+            echo "${__mlq_logo}""${mlq_welcome}"
             echo 'Use '"'"'--helpfull'"'"'|'"'"'-hf'"'"' for full instructions.'
             echo 'Use '"'"'--help_ml'"'"'|'"'"'-hm'"'"' for help with '"'"'lmod'"'"' ml'
             echo ''
@@ -827,6 +835,7 @@ EOF
             fi
             return
         else
+	    echo "${__mlq_moo}"
             echo 'Arguments after '"'"'--nuke'"'"' not understood!'
             return 1
         fi
@@ -913,6 +922,9 @@ EOF
         # shortcut_name="$1"
         shortcut_name=`__mlq_get_default_module "$1"`
 
+        local name
+	local moo
+	
         # Shift the arguments again so we are left with [mod1 [mod2 ...]]
         # If only 2 args given, i.e. '--build <mod>', we don't shift;
         #  shortcut name is the same as the module
@@ -922,21 +934,32 @@ EOF
             
             custom_name=1
 
-            # If the shortcut name appears as one of the listed modules, it
-            #  shall not be taken to be a custom shortcut
+	    # Two extra safety checks
             local ind
-            local m
+            local m	    
             for m in "${@:1}" ; do
+		
+		# If the shortcut name appears as one of the listed modules, it
+		#  shall not be taken to be a custom shortcut
                 if [[ "${m}" == "${shortcut_name}" ]] ; then
                     custom_name=
                 fi
-            done
-        fi
 
-        local name
-        name="$(echo "$1" | awk -F/ '{print $(NF-1)}')"
-	if [[ "${name}" == 'mlq' ]] ; then
-            echo "${__mlq_logo2}"
+		# No selfie shortcuts!
+		name="$(echo "$m" | awk -F/ '{print $(NF-1)}')"
+		if [[ "${name}" == 'mlq' ]] ; then
+		    moo=1
+		fi
+            done
+        else
+	    name="$(echo "$1" | awk -F/ '{print $(NF-1)}')"
+	    if [[ "${name}" == 'mlq' ]] ; then
+		moo=1
+	    fi
+	fi
+
+	if [[ "${moo}" ]] ; then
+	    echo "${__mlq_moo}"
 	    echo 'Sorry, mlq cannot build a shortcut of itself!'
 	    return
 	fi
@@ -1566,8 +1589,8 @@ EOF
                         # YCRC fudge: we let R/xxxx-bare substitute for R/xxxx, because
                         #  this should be safe in our setup
                         
-                        local ycrc_r_fudge
-                        ycrc_r_fudge=
+                        local ycrc_r_fudge_pass
+                        ycrc_r_fudge_pass=
                         local name
                         name="$(echo "$mod" | awk -F/ '{print $(NF-1)}')"
                         
@@ -1575,11 +1598,11 @@ EOF
                             modfile_check=`__mlq_orig_module --redirect --location show "${mod}-bare"`
                             if [[ `awk -v mod="${modfile_check}" '$1 == mod {print 1}' "${quikmod_lua%.*}.mod_list"` ]] ; then
                                 echo '[YCRC fudge] Note: allowing module '"${mod}"'-bare to substitute for '"${mod}"
-                                ycrc_r_fudge=1
+                                ycrc_r_fudge_pass=1
                             fi
                         fi
                         
-                        if [[ ! ${ycrc_r_fudge} ]] ; then
+                        if [[ ! ${ycrc_r_fudge_pass} ]] ; then
                             echo ''
                             echo '###########################################'
                             echo '###########################################'
@@ -1593,7 +1616,6 @@ EOF
 
                             if [[ "${safe_build}" ]] ; then
                                 build_failed=1
-                                break
                             fi
                         fi
                     fi
@@ -1602,6 +1624,9 @@ EOF
                     ###########################################                 
                 fi
             done
+            if [[ "${build_failed}" ]] ; then
+                break
+            fi
         
             # Record the shortcut environment for consistency checks, rebuilding ,etc.
             if [[ ! "${safe_build}" ]] ; then
@@ -1666,7 +1691,7 @@ EOF
             echo 'Shortcut '"'""${shortcut_name}""'"' is now available.'
             # echo 'mlq '"${shortcut_name}"
             echo ''
-
+	    echo um "${build_failed}" ummmmmm
             # If building a shortcut for the first time, need to set load_lua and load_dir
             #  for use in the upcoming shortcut loading step
             if [[ "${request_type}" == 'auto' && ! "${load_lua}" ]] ; then
@@ -1706,6 +1731,7 @@ EOF
                     export MODULEPATH="${build_modpath}"
 		fi
 	    else
+		echo "${__mlq_moo}"
 		echo 'ERROR: Shortcut (re)build has failed. Exiting'
 		return 1
 	    fi
