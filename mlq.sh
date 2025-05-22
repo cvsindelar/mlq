@@ -1276,6 +1276,7 @@ EOF
 
             if [[ ($? != 0) ]]; then
                 # The requested module(s) were not available
+		echo ''
                 echo "Sorry, shortcut '"${shortcut_name}"' cannot be built because one or more of the module(s)"
                 echo " cannot be found:"
                 echo "   ${module_spec[@]}"
