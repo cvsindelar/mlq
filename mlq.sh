@@ -932,6 +932,15 @@ EOF
                 fi
             done
         fi
+
+        local name
+        name="$(echo "$1" | awk -F/ '{print $(NF-1)}')"
+	if [[ "${name}" == 'mlq' ]] ; then
+            echo "${__mlq_logo2}"
+	    echo 'Sorry, mlq cannot build a shortcut of itself!'
+	    return
+	fi
+	
     ###########################################
     # All options processed; process the remaining arguments as module names
     ###########################################
