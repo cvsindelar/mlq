@@ -271,7 +271,7 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
     
     # echo Loading mlq
     if [[ ! $# != 4 ]] ; then
-	echo "${__mlq_moo}"
+        echo "${__mlq_moo}"
         echo 'Usage:'
         echo    'source mlq.sh --mlq_load mlq/<version> <path-to-mlq-lua file>'
         return
@@ -286,7 +286,7 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
 
     # Check if the file exists and if the module path was identified correctly
     if [[ ! -f "$3" || ! "${__mlq_path}" ]]; then
-	echo "${__mlq_moo}"
+        echo "${__mlq_moo}"
         echo 'ERROR: mlq module '"'""$2""'"' not found.'
         echo $3
         echo 'Usage:'
@@ -302,7 +302,7 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
         # Extract the path from the full filename
         # __mlq_path=`echo "$3"|awk '{n=sub("/mlq/[^/]+[.]lua$","",$0); if(!n) n=sub("/mlq[.]lua$","",$0); if(n) print}'`
         if [[ ! ${__mlq_path} ]] ; then
-	    echo "${__mlq_moo}"
+            echo "${__mlq_moo}"
             echo 'ERROR: path to the mlq module cannot be determined!'
             echo '(this should not happen)'
             unset __mlq_path
@@ -315,7 +315,7 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
     #  before proceeding. This avoids mixing modules with shortcuts.
 
     if [[ `declare -f __mlq_orig_module | grep -v __mlq_orig_module | grep mlq` ]] ; then
-	echo "${__mlq_moo}"
+        echo "${__mlq_moo}"
         echo 'ERROR: the mlq environment has become very, very, very! confused!'
         echo 'To restore normal module-loading behavior, you may need to'
         echo 'log out and log in again!'
@@ -323,9 +323,9 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
     fi
 
     function module() {
-	local retVal
-	retVal=0
-	
+        local retVal
+        retVal=0
+        
         # If doing 'module load', first unload any loaded shortcuts
         # We skip this if the first module argument is an unload request (starts with '-')
         if [[ "$1" == 'load' && $# -gt 1 ]] ; then
@@ -351,7 +351,7 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
 
                 echo '[mlq] Executing: module load '"${good_mod_args[@]}"
                 __mlq_orig_module load "${good_mod_args[@]}"
-		retVal=$?
+                retVal=$?
             fi
             return "${retVal}"
         fi
@@ -376,7 +376,7 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
             local mlqs_active
             mlqs_active=`__mlqs_active`
             if [[ "${mlqs_active}" ]] ; then
-		echo "${__mlq_moo}"
+                echo "${__mlq_moo}"
                 echo 'Sorry, shortcuts cannot be saved in an lmod collection'
                 echo 'To load a shortcut on login, you can put a line in your shell startup file (i.e., .bashrc):'
                 echo "${mlqs_active}" | awk '{print "  ml mlq; ml " substr($1,5,length($1)-4)}'
@@ -405,16 +405,16 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
         
         # echo '[mlq] Executing: module '"${@:1}"
         __mlq_orig_module "${@:1}"
-	retVal="$?"
+        retVal="$?"
         return "${retVal}"
     }
 
     # Add a hook to the 'ml' command to call __mlq
     function ml() {
-	local retval
-	retval=0
+        local retval
+        retval=0
         __mlq "${@:1}"
-	retVal="$?"
+        retVal="$?"
         return "${retVal}"
     }    
 else
@@ -453,7 +453,7 @@ if [[ "$1" == "--mlq_unload" ]]; then
     #  also exist
     if [[ `type -t __mlq 2> /dev/null` == 'function' ]] ; then
         if [[ `declare -f __mlq_orig_module | grep -v __mlq_orig_module | grep mlq` ]] ; then
-	    echo "${__mlq_moo}"
+            echo "${__mlq_moo}"
             echo 'ERROR: the mlq environment has become really, really confused!'
             echo 'To restore normal module-loading behavior, you may need to'
             echo 'log out and log in again!'
@@ -537,18 +537,6 @@ IFS='' read -r -d '' mlq_logo <<"EOF"
                ^^
 EOF
     
-    # Fancier logo (as if)
-    # Font source: https://patorjk.com/software/taag/#p=display&f=Diet%20Cola&t=mlq
-    local mlq_diet_cola
-    IFS='' read -r -d '' mlq_diet_cola <<"EOF"
-            (~~)                         
-           <(@@)                  /      
-     /##--##-\#)    .  .-. .-.   / .-.   
-    / |##  # |       )/   )   ) / (   )  
-   *  ||ww--||      '/   /   (_/_.-`-(   
-      ^^    ^^                `-'     `-'
-EOF
-    
     local mlq_dir
     mlq_dir="${HOME}"/.mlq
 
@@ -617,7 +605,7 @@ EOF
 
         local mlq_welcome
 # Welcome message
-	IFS='' read -r -d '' mlq_welcome <<"EOF"
+        IFS='' read -r -d '' mlq_welcome <<"EOF"
 mlq: module loader-quick
 https://github.com/cvsindelar/mlq
 
@@ -838,7 +826,7 @@ EOF
             fi
             return
         else
-	    echo "${__mlq_moo}"
+            echo "${__mlq_moo}"
             echo 'Arguments after '"'"'--nuke'"'"' not understood!'
             return 1
         fi
@@ -900,6 +888,52 @@ EOF
         shift
         (( n_argin=$n_argin-1 ))
     fi
+
+    ###########################################
+    # '--build' option: specify a shortcut build
+    ###########################################
+
+    if [[ `printf '%s' "$1" | awk '$1 == "--mooo" {print 1}'` ]] ; then
+	
+	cat <<"EOF"
+                            ;:                                          
+                          .x..                      .                   
+                         .x:.:                     ::                   
+                          X....                   x...                  
+                         .X.......x.:...:.+:.  . ;..;.                  
+                         .:.......:..x;XxXXXXX:x...;.                   
+                          :+;.........;;..+XXXXX..;.;                   
+                       ....;................;XXXX:.                     
+            . . ..;X:....:..........::XX+X+.+;xXXX.                     
+          ................:.........X+X::XXx:XXXXXX+                    
+          .........:..:..X...........:XX;:+.xXXXXXX:                    
+           ............x....................x++XXXX.                    
+               .X....x......;x......X+;Xx+:..;++xxXX..                  
+               .+.x$$$.....xxx....+:XXXXXXX.....$.XXX+;:..              
+             .X..$$$$;.....xxx....+XXXXXXXXX.....;......;.              
+             .;.$$$x$;....:xx....;XXXXXXXXXXX...........:               
+            .+.$$$$+++....;x:....X+XXXXXXXXXXX;+.........               
+           .;.$$$$x;X:.....:.....+XXXXXXXXXXXXXx$x... ...   .&+:x       
+          ...$$$$x;;X.......x....xXX++x;X;....XX...X.      :+++$+X.&&.  
+         ;...$$$+;:..........x...+XX.+$X:.....XX....X.     X+$&+&;+;$+; 
+        .:..X$$X+X............x...xXXX;X......X:.....;.     &$+X&X&&;&+;
+       .;..;;$...............:xx...xXXXXX............;.    .&Xx&:x;$+;&X
+   ..x...:..................;xxxx....XXXXXXX........x;   .X$$$$+X+;;+.. 
+...........................+xxxxxx....XXXXXX:X.....X:   .$+;+xX+X$&x;$  
+X............:.............+xxxxxxx...............;      X+++xx:$$+;;&  
+x.........................:xxxxxxxx .;..;+;.:+.              .X: $$&X+  
+....XXXXXXXx..;............xxxxxxx.;..                       :          
+XXXXXXXXXXXXX;.............;xxxxxx.....                     .;          
+X.X++XXXXXXXXX..............xxxxx;.....+..                  $           
+..xX;xXXXXXXXXX.......:......xx+.......;.:                 &X.          
+:+.+XXXXXXXXXXXXX:..........................               +;& :        
++:++;+XXXXXXXXXXXXXXX......................                             
+X:::+XX+XXXXXXXXXXXXXXX...................+.                            
+::::::xXXXXXXXXXXXXXXXX..................:;.                            
+::::;::+X:X+XXXXXXXXXXX.................::                              
+EOF
+	return
+    fi
     
     ###########################################
     # '--build' option: specify a shortcut build
@@ -926,8 +960,8 @@ EOF
         shortcut_name=`__mlq_get_default_module "$1"`
 
         local name
-	local moo
-	
+        local moo
+        
         # Shift the arguments again so we are left with [mod1 [mod2 ...]]
         # If only 2 args given, i.e. '--build <mod>', we don't shift;
         #  shortcut name is the same as the module
@@ -937,36 +971,36 @@ EOF
             
             custom_name=1
 
-	    # Two extra safety checks
+            # Two extra safety checks
             local ind
-            local m	    
+            local m         
             for m in "${@:1}" ; do
-		
-		# If the shortcut name appears as one of the listed modules, it
-		#  shall not be taken to be a custom shortcut
+                
+                # If the shortcut name appears as one of the listed modules, it
+                #  shall not be taken to be a custom shortcut
                 if [[ "${m}" == "${shortcut_name}" ]] ; then
                     custom_name=
                 fi
 
-		# No selfie shortcuts!
-		name="$(echo "$m" | awk -F/ '{print $(NF-1)}')"
-		if [[ "${name}" == 'mlq' ]] ; then
-		    moo=1
-		fi
+                # No selfie shortcuts!
+                name="$(echo "$m" | awk -F/ '{print $(NF-1)}')"
+                if [[ "${name}" == 'mlq' ]] ; then
+                    moo=1
+                fi
             done
         else
-	    name="$(echo "$1" | awk -F/ '{print $(NF-1)}')"
-	    if [[ "${name}" == 'mlq' ]] ; then
-		moo=1
-	    fi
-	fi
+            name="$(echo "$1" | awk -F/ '{print $(NF-1)}')"
+            if [[ "${name}" == 'mlq' ]] ; then
+                moo=1
+            fi
+        fi
 
-	if [[ "${moo}" ]] ; then
-	    echo "${__mlq_moo}"
-	    echo 'Sorry, mlq cannot build a shortcut of itself!'
-	    return
-	fi
-	
+        if [[ "${moo}" ]] ; then
+            echo "${__mlq_moo}"
+            echo 'Sorry, mlq cannot build a shortcut of itself!'
+            return
+        fi
+        
     ###########################################
     # All options processed; process the remaining arguments as module names
     ###########################################
@@ -1279,7 +1313,7 @@ EOF
 
             if [[ ($? != 0) ]]; then
                 # The requested module(s) were not available
-		echo ''
+                echo ''
                 echo "Sorry, shortcut '"${shortcut_name}"' cannot be built because one or more of the module(s)"
                 echo " cannot be found:"
                 echo "   ${module_spec[@]}"
@@ -1309,7 +1343,7 @@ EOF
 
             echo ' with included modules:'
             echo "${module_spec_full[@]}"
-	    
+            
             printf 'Purging any loaded modules...'
             __mlq_reset
             
@@ -1375,8 +1409,8 @@ EOF
             # __mlq_orig_module -I --redirect load ${module_spec_full[@]} >& "${quikmod_lua%.*}".warnings
             __mlq_orig_module --ignore_cache --redirect load ${module_spec_full[@]} >& "${quikmod_lua%.*}".warnings
             retVal="$?"
-	    
-	    cat "${quikmod_lua%.*}".warnings
+            
+            cat "${quikmod_lua%.*}".warnings
 
             if [ "${retVal}" -ne 0 ]; then
                 echo '###########################################'
@@ -1396,10 +1430,10 @@ EOF
                 failed_mods=
                 for mod in ${module_spec_full[@]} ; do
                     __mlq_orig_module --ignore_cache --redirect load "${mod}" >& "${quikmod_lua%.*}".warnings
-		    retVal="$?"
+                    retVal="$?"
 
-		    cat "${quikmod_lua%.*}".warnings
-		    
+                    cat "${quikmod_lua%.*}".warnings
+                    
                     if [ "${retVal}" -ne 0 ]; then
                         if [[ ! "${__mlq_ycrc_r_fudge_switch}" ]] ; then
                             failed_mods=( ${failed_mods[@]} "${mod}" )
@@ -1410,11 +1444,11 @@ EOF
                             
                             local name
                             name="$(echo "$mod" | awk -F/ '{print $(NF-1)}')"
-			    
+                            
                             if [[ ! ${name} == 'R' ]] ; then
-				failed_mods=( ${failed_mods[@]} "${mod}" )
-				echo ''
-			    else
+                                failed_mods=( ${failed_mods[@]} "${mod}" )
+                                echo ''
+                            else
                                 __mlq_orig_module --ignore_cache --redirect load "${mod}-bare"
                                 retVal=$?
                                 if [[ ${retVal} ]] ; then
@@ -1430,38 +1464,38 @@ EOF
                     fi
                 done
 
-		# Don't proceed if no modules successfully loaded;
-		#  or if we are in safe mode and any modules failed to load
-		local failure_exit
-		failure_exit=
+                # Don't proceed if no modules successfully loaded;
+                #  or if we are in safe mode and any modules failed to load
+                local failure_exit
+                failure_exit=
                 if [[ ( ${#failed_mods} == ${#module_spec_full} ) \
-			  || ( ${#failed_mods} -gt 0 && "${safe_build}" ) ]] ; then
-		    failure_exit=1
-		fi
+                          || ( ${#failed_mods} -gt 0 && "${safe_build}" ) ]] ; then
+                    failure_exit=1
+                fi
 
-		if [[ ${#failed_mods} -gt 0 ]] ; then
+                if [[ ${#failed_mods} -gt 0 ]] ; then
                     echo ''
                     echo '###########################################'
                     echo '###########################################'
                     echo '###########################################'
-		    if [[ "${failure_exit}" ]] ; then
+                    if [[ "${failure_exit}" ]] ; then
                         echo 'ERROR: could not load the original module(s):'
-		    else
+                    else
                         echo 'WARNING: could not load the original module(s):'
-		    fi
+                    fi
                     echo '  '"${failed_mods[@]}"
-		    if [[ ! "${failure_exit}" ]] ; then
+                    if [[ ! "${failure_exit}" ]] ; then
                         echo 'Safe mode is not requested, so proceeding anyway!'
-		    fi
+                    fi
                     echo '###########################################'
                     echo '###########################################'
                     echo '###########################################'
                     
-		    if [[ "${failure_exit}" ]] ; then
+                    if [[ "${failure_exit}" ]] ; then
                         export MODULEPATH="${mlq_user_orig_modpath}"
                         build_failed=1
                         break
-		    fi
+                    fi
                 fi
                 # End of heroic try
                 ###########################################
@@ -1691,7 +1725,7 @@ EOF
                 echo ${mod} >> "${quikmod_lua%.*}".spec
             done
             
-	    echo "${mlq_logo}"
+            echo "${mlq_logo}"
             echo 'Shortcut '"'""${shortcut_name}""'"' is now available.'
             # echo 'mlq '"${shortcut_name}"
             echo ''
@@ -1715,29 +1749,29 @@ EOF
         # If a rebuild was attempted after the user requested to load the shortcut,
         #  but the rebuild failed, we fall back to ordinary module loading.
         if [[ "${build_failed}" ]] ; then
-	    if [[ ( "${request_type}" == 'load' || "${request_type}" == 'auto' ) ]] ; then
-		echo '###########################################'
-		echo '###########################################'
-		echo '###########################################'
-		echo 'WARNING: Shortcut (re)build has failed, so falling back to ordinary module loading.'
-		echo '###########################################'
-		echo '###########################################'
-		echo '###########################################'
+            if [[ ( "${request_type}" == 'load' || "${request_type}" == 'auto' ) ]] ; then
+                echo '###########################################'
+                echo '###########################################'
+                echo '###########################################'
+                echo 'WARNING: Shortcut (re)build has failed, so falling back to ordinary module loading.'
+                echo '###########################################'
+                echo '###########################################'
+                echo '###########################################'
 
-		# Reset all modules to emulate the behavior of shortcut loading
-		fall_back=1
-		__mlq_reset
+                # Reset all modules to emulate the behavior of shortcut loading
+                fall_back=1
+                __mlq_reset
 
-		# Restore the modulepath from the shortcut in case a custom path was present
-		#  during the original shortcut build (i.e. if the user had previously done 'module use')
-		if [[ "${build_modpath}" ]] ; then
+                # Restore the modulepath from the shortcut in case a custom path was present
+                #  during the original shortcut build (i.e. if the user had previously done 'module use')
+                if [[ "${build_modpath}" ]] ; then
                     export MODULEPATH="${build_modpath}"
-		fi
-	    else
-		echo "${__mlq_moo}"
-		echo 'ERROR: Shortcut (re)build has failed. Exiting'
-		return 1
-	    fi
+                fi
+            else
+                echo "${__mlq_moo}"
+                echo 'ERROR: Shortcut (re)build has failed. Exiting'
+                return 1
+            fi
         fi          
     fi
     
@@ -1792,7 +1826,8 @@ EOF
             #  the 'module' function (with 'mlq' hooks) handles this case
             if [[ ( ${module_spec[0]} == 'save' || ${module_spec[0]} == 's' ) ]] ; then
                 module ${module_spec[@]}
-                return
+                return_status=$?
+                return $return_status
             fi
 
             # Reset/restore/purge: use __mlq_reset to keep mlq around
@@ -1814,6 +1849,8 @@ EOF
 
                 # echo 'Executing: '"'"'ml '"${module_spec[@]}""'"
                 __mlq_orig_ml ${module_spec[@]}
+                return_status=$?
+                return $return_status
             fi
         fi
     fi
@@ -1891,6 +1928,19 @@ function mlq_check() {
 
     return $return_status
 }
+
+# Fancier logo (as if)
+# Font source: https://patorjk.com/software/taag/#p=display&f=Diet%20Cola&t=mlq
+# __mlq_diet_cola
+#     IFS='' read -r -d '' mlq_diet_cola <<"EOF"
+#             (~~)                         
+#            <(@@)                  /      
+#      /##--##-\#)    .  .-. .-.   / .-.   
+#     / |##  # |       )/   )   ) / (   )  
+#    *  ||ww--||      '/   /   (_/_.-`-(   
+#       ^^    ^^                `-'     `-'
+# EOF
+    
 
 function __mlq_parse_module_tree_iter() {
     # In the YCRC setup, R versions R/xxx and R/xxx-bare can coexist
