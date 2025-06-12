@@ -124,7 +124,7 @@ function __mlqs_active() {
     local mod
     local mod_file
     local mlqs_active
-    mlqs_active=
+    unset mlqs_active
     mlqs_active_candidates=(`__mlq_orig_module -t --redirect list|grep '^mlq[-]'`)
     for mod in ${mlqs_active_candidates[@]} ; do
         mod_file=`__mlq_orig_module --redirect --location show "${mod}"`
@@ -160,7 +160,7 @@ function __mlq_active_modules() {
     module_candidates=(`__mlq_orig_module -t --redirect list|grep -v '^mlq[/]'`)
     for mod in ${module_candidates[@]} ; do
         # Look for 'imposter' modules that start with 'mlq-' but are not shortcuts
-        is_qmod=
+        unset is_qmod
         if [[ `echo $mod | grep '^mlq[-]'` ]] ; then
             mod_file=`__mlq_orig_module --redirect --location show "${mod}"`
             is_qmod=`echo "${mod_file}" | \
@@ -332,8 +332,9 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
         # We skip this if the first module argument is an unload request (starts with '-')
         if [[ "$1" == 'load' && $# -gt 1 ]] ; then
 
-            local good_mod_args=
+            local good_mod_args
             local mod_arg
+	    unset good_mod_args
             for mod_arg in "${@:2}" ; do
                 # Don't reload the same mlq module on top of itself, as this complicates things
                 #  when starting a slurm job, for instance
@@ -558,17 +559,17 @@ EOF
     local request_type
     local safe_build
     request_type='load'
-    custom_name=
+    unset custom_name
     safe_build=1
-    shortcut_name=
+    unset shortcut_name
     
     local fall_back
     local rebuild
     local ordered_module_list
 
-    fall_back=
-    rebuild=
-    ordered_module_list=
+    unset fall_back
+    unset rebuild
+    unset ordered_module_list
 
     ###########################################
     # Bash command to save file info, including the full contents, size, and date,
@@ -841,7 +842,7 @@ EOF
     ###########################################
 
     local delete_shortcut
-    delete_shortcut=
+    unset delete_shortcut
     if [[ `printf '%s' "$1" | awk '($1 ~ "--d" && "--delete" ~ $1) || $1 == "-d" {print 1}'` ]] ; then
         if [[ $n_argin -lt 2 ]] ; then
             echo "'"'--delete'"'"' option: please give a shortcut name'
@@ -861,7 +862,7 @@ EOF
     # '--list' option: list dependent modulefiles
     ###########################################
     local mlq_list
-    mlq_list=
+    unset mlq_list
     if [[ `printf '%s' "$1" | awk '($1 ~ "--l" && "--list" ~ $1) || $1 == "-l" {print 1}'` ]]; then
         mlq_list=1
         shift
@@ -880,7 +881,7 @@ EOF
         request_type='auto'
 
         if [[ `printf '%s' "$1" | awk '($1 ~ "--unsafe_a" && "--unsafe_auto" ~ $1) || $1 == "-ua" {print 1}'` ]] ; then
-            safe_build=
+            unset safe_build
         fi
         
         if [[ $n_argin -lt 2 ]] ; then
@@ -951,7 +952,7 @@ EOF
         fi
 
         if [[ `printf '%s' "$1" | awk '($1 ~ "--unsafe_b" && "--unsafe_build" ~ $1) || $1 == "-ub" {print 1}'` ]] ; then
-            safe_build=
+            unset safe_build
         fi
         
         # Shift the arguments so we are left with <shortcut name> [mod1 [mod2 ...]]
@@ -981,7 +982,7 @@ EOF
                 # If the shortcut name appears as one of the listed modules, it
                 #  shall not be taken to be a custom shortcut
                 if [[ "${m}" == "${shortcut_name}" ]] ; then
-                    custom_name=
+                    unset custom_name
                 fi
 
                 # No selfie shortcuts!
@@ -1044,7 +1045,7 @@ EOF
         if [[ ${#dir_t[@]} -gt 1 ]]; then
             quikmod_top_dir='mlq-'"${dir_t[0]}"
         else
-            quikmod_top_dir=
+            unset quikmod_top_dir
         fi
 
         # Define target_dir, which is where the shortcut info will be stored
@@ -1072,8 +1073,8 @@ EOF
         #  (priority to the user one)
         local load_lua
         local load_dir
-        load_lua=
-        load_dir=
+        unset load_lua
+        unset load_dir
         if [[ -f "${quikmod_lua}" ]] ; then
             load_lua="${quikmod_lua}"
             load_dir="${mlq_dir}"
@@ -1120,7 +1121,7 @@ EOF
             return
         else
             local disable_prebuild
-            disable_prebuild=
+            unset disable_prebuild
             # the existence of an empty directory "${target_dir}.d" is used
             #  to indicate a prebuilt shortcut is 'deleted' (inactivated)
             if [[ -f "${prebuild_lua}" && ! -d "${target_dir}.d" ]] ; then
@@ -1128,7 +1129,7 @@ EOF
             fi
             
             local for_real
-            for_real=
+            unset for_real
             [[ -f "${quikmod_lua}" ]] && for_real=1
             [[ -f "${quikmod_lua%.*}.lua_record" ]] && for_real=1
             [[ -f "${quikmod_lua%.*}.spec" ]] && for_real=1
@@ -1207,21 +1208,23 @@ EOF
             #  was built (i.e., <shortcut>.mod_list needs to not be empty)
             ###########################################
             fall_back=1
-        elif [[ "$(eval ${build_lua_record} | (cmp ${load_lua%.*}.lua_record ; echo $?) )" -ne 0 ]] ; then
-            ###########################################
-            # If the module files changed, need to rebuild
-            ###########################################
-            if [[ "${request_type}" == 'load' || "${request_type}" == 'auto' ]] ; then
-                echo 'This shortcut seems to be out of date. Trying to rebuild...'
-                rebuild=1
-		# Unset module_spec to trigger its reloading from the .spec file (below)
-		module_spec=
-            fi
         else
+	    eval ${build_lua_record} | cmp ${load_lua%.*}.lua_record >& /dev/null
+	    if [[ "$?" -ne 0 ]] ; then
+		###########################################
+		# If the module files changed, need to rebuild
+		###########################################
+		if [[ "${request_type}" == 'load' || "${request_type}" == 'auto' ]] ; then
+                    echo 'This shortcut seems to be out of date. Trying to rebuild...'
+                    rebuild=1
+		    # Unset module_spec to trigger its reloading from the .spec file (below)
+		    unset module_spec
+		fi
+            elif [[ "${request_type}" == 'build' && ! -d "${target_dir}.d" ]] ; then
             # If a build is requested but things look up to date, optionally rebuild.
             #  We also skip this if the user deactivated the prebuilt shortcut; in the case, the
             #  prebuilt shortcut will reactivated in the next section
-            if [[ "${request_type}" == 'build' && ! -d "${target_dir}.d" ]] ; then
+            
                 if [[ ! -f "${quikmod_lua}" ]] ; then 
                     echo 'Prebuilt shortcut '"'"${shortcut_name}"'"' exists already and seems up to date;'
                     # The below line tests if we are in an interactive shell
@@ -1287,7 +1290,7 @@ EOF
                     echo '###########################################'
                     echo '###########################################'
                     
-                    safe_build=
+                    unset safe_build
                 else
                     safe_build=1
                 fi
@@ -1307,7 +1310,7 @@ EOF
         fi
 
         local build_failed
-        build_failed=
+        unset build_failed
         
         # Below, a 'while' statement is used in place of an 'if' statement.
         #  The while statement does not iterate because of the 'break' statement at the end.
@@ -1435,7 +1438,7 @@ EOF
                 printf '' > "${quikmod_lua%.*}".warnings
                 local mod
                 local failed_mods
-                failed_mods=
+                unset failed_mods
                 for mod in ${module_spec_full[@]} ; do
                     echo '[mlq] Executing: module load '"${mod}"
                     __mlq_orig_module --ignore_cache --redirect load "${mod}" >& "${quikmod_lua%.*}".warnings
@@ -1476,7 +1479,7 @@ EOF
                 # Don't proceed if no modules successfully loaded;
                 #  or if we are in safe mode and any modules failed to load
                 local failure_exit
-                failure_exit=
+                unset failure_exit
                 if [[ ( ${#failed_mods} == ${#module_spec_full} ) \
                           || ( ${#failed_mods} -gt 0 && "${safe_build}" ) ]] ; then
                     failure_exit=1
@@ -1637,7 +1640,7 @@ EOF
                         #  this should be safe in our setup
                         
                         local ycrc_r_fudge_pass
-                        ycrc_r_fudge_pass=
+                        unset ycrc_r_fudge_pass
                         local name
                         name="$(echo "$mod" | awk -F/ '{print $(NF-1)}')"
                         
@@ -1901,12 +1904,12 @@ function mlq_check() {
     fi
    
     local return_status
-    return_status=
+    unset return_status
     
     local mlq_check_args
-    mlq_check_args=
+    unset mlq_check_args
     local ycrc_r_fudge
-    ycrc_r_fudge=
+    unset ycrc_r_fudge
     # If no arguments given, check the current module environment
     if [[ "$#" -gt 0 ]] ; then
         if [[ "$1" == '--ycrc_r_fudge' ]] ; then
@@ -1967,7 +1970,7 @@ function __mlq_parse_module_tree_iter() {
     #  at a time). The below 'fudge' flag allows this to occur
     #  without reporting a conflict!
     local ycrc_r_fudge
-    ycrc_r_fudge=
+    unset ycrc_r_fudge
     if [[ "$1" == '--ycrc_r_fudge' ]] ; then
         # Ugh
         ycrc_r_fudge='--ycrc_r_fudge'
@@ -1976,8 +1979,8 @@ function __mlq_parse_module_tree_iter() {
     
     local callstack
     local toplevel
-    callstack=
-    toplevel=
+    unset callstack
+    unset toplevel
     if [[ "$1" == '--callstack' ]] ; then
         shift
         callstack=$1
