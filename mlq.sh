@@ -1207,13 +1207,15 @@ EOF
             #  was built (i.e., <shortcut>.mod_list needs to not be empty)
             ###########################################
             fall_back=1
-        elif [[ "$(eval ${build_lua_record} | cmp ${load_lua%.*}.lua_record)" ]] ; then
+        elif [[ "$(eval ${build_lua_record} | (cmp ${load_lua%.*}.lua_record ; echo $?) )" -ne 0 ]] ; then
             ###########################################
             # If the module files changed, need to rebuild
             ###########################################
             if [[ "${request_type}" == 'load' || "${request_type}" == 'auto' ]] ; then
                 echo 'This shortcut seems to be out of date. Trying to rebuild...'
                 rebuild=1
+		# Unset module_spec to trigger its reloading from the .spec file (below)
+		module_spec=
             fi
         else
             # If a build is requested but things look up to date, optionally rebuild.
