@@ -8,13 +8,15 @@ if [[ "$0" == "${BASH_SOURCE}" ]]; then
     exit
 fi
 
+lib2="${HOME}"'/.mlq_simple'
+
 if [[ $1 == "--help" || $1 == "-h" || $1 == "show-all-if-ambiguous" || $# -lt 1 || $# -gt 1 ]] ; then
     echo 'Please give one argument: <shortcut_name>'
     echo ''
     echo 'Forward slashes in <shortcut_name> will be substituted by '"'"'-'"'"'.'
     echo ''
     echo 'All loaded modules will be saved into the shortcut file:'
-    echo '  ~/mlq_simple/mlq-<shortcut_name_no_slashes>.lua'
+    echo '  '"${lib2}"'/mlq-<shortcut_name_no_slashes>.lua'
     return
 fi
 shortcut_name='mlq-'"$1"
@@ -40,8 +42,8 @@ ordered_module_list=( $(for m in `ml --redirect -t|grep -v StdEnv` ; do ml --red
 #   making it so that only the first 'root' declaration keeps the 'local' keyword.
 ##################
 
-mkdir -p ~/mlq_simple
-cd ~/mlq_simple
+mkdir -p "${lib2}"
+cd "${lib2}"
 printf '' > "${shortcut_name}".lua
 (for m in ${ordered_module_list[@]} ; do grep -v 'depends_on' "${m}" ; done) | \
     awk \
@@ -57,10 +59,10 @@ printf '' > "${shortcut_name}".lua
 
 # Preserve the original shortcut name for listing purposes (it might have slashes)
 echo "$1" > "${shortcut_name}".shortcut_name
-echo 'Shortcut saved to: '"${HOME}"'/mlq_simple/'"${shortcut_name}".lua
+echo 'Shortcut saved to: '"${lib2}"'/'"${shortcut_name}".lua
 echo 'Load with: '
 echo 'mlsq '"$1"
 echo '  or manually with:'
-echo 'ml reset; ml use '"${HOME}"'/mlq_simple ; ml '"${shortcut_name}"
+echo 'ml reset; ml use '"${lib2}"' ; ml '"${shortcut_name}"
 
 cd - >& /dev/null

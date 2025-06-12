@@ -43,7 +43,7 @@ function mlsq() {
     local lib1
     local lib2
     lib1="${__mlq_base_simple_dir}"
-    lib2="${HOME}"'/.mlq/mlq_simple'
+    lib2="${HOME}"'/.mlq_simple'
     mkdir -p "${lib1}"
     mkdir -p "${lib2}"
 
@@ -83,12 +83,12 @@ function mlsq() {
     shortcut_name=`echo "${shortcut_name}"|awk '{gsub("/","-",$0); print $0}'`
 
     # If a shortcut exists by this name, load it; otherwise, execute 'ml'
-    if [[ -f "${HOME}"'/.mlq/mlq_simple/'"${shortcut_name}"'.lua' || \
+    if [[ -f "${lib2}/${shortcut_name}"'.lua' || \
 	      -f "${__mlq_base_simple_dir}"'/'"${shortcut_name}"'.lua' ]] ; then
 	# Clear old modules and shortcuts
 	ml reset >& /dev/null
 	# Add paths to the shortcut modules
-	ml use "${HOME}"'/.mlq/mlq_simple:'"${__mlq_base_simple_dir}"
+	ml use "${lib2}"':'"${__mlq_base_simple_dir}"
 
 	echo 'Loading shortcut '"'""${shortcut_name}""'"
 	ml "${shortcut_name}"

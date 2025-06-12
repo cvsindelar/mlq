@@ -8,13 +8,15 @@ if [[ "$0" == "${BASH_SOURCE}" ]]; then
     exit
 fi
 
+lib2="${HOME}"'/.mlq_simple'
+
 if [[ $1 == "--help" || $1 == "-h" || $1 == "show-all-if-ambiguous" || $# -lt 1 || $# -gt 1 ]] ; then
     echo 'Please give one argument: <shortcut_name>'
     echo ''
     echo 'Forward slashes in <shortcut_name> will be substituted by '"'"'-'"'"'.'
     echo ''
     echo 'All loaded modules will be saved into the shortcut file:'
-    echo '  ~/.mlq/mlq_simple/mlq-<shortcut_name_no_slashes>.lua'
+    echo '  '"${lib2}"'/mlq-<shortcut_name_no_slashes>.lua'
     return
 fi
 shortcut_name='mlq-'"$1"
