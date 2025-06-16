@@ -505,9 +505,10 @@ __mlq_base_dir="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && p
 __mlq_prebuilds_dir="${__mlq_base_dir}/mlq_prebuilds"
 
 if [[ ! ${__mlq_loaded} ]] ; then
-    echo 'Fast module loading is now enabled.'
-    echo 'Use '"'"'ml -b <mod>'"'"' or '"'"'ml -b <shortcut_name> <mod1> [<mod2> ...]'"'"' to build new shortcuts'
-    echo 'Use '"'"'ml -h'"'"' or '"'"'ml -hf'"'"' for more examples and instructions'
+    ( echo 'Fast module loading is now enabled.' ; \
+      echo 'Use '"'"'ml -b <mod>'"'"' or '"'"'ml -b <shortcut_name> <mod1> [<mod2> ...]'"'"' to build new shortcuts' ; \
+      echo 'Use '"'"'ml -h'"'"' or '"'"'ml -hf'"'"' for more examples and instructions' ; \
+      ) 1>&2
 fi
 
 # Keeps track of whether mlq has been loaded before (used for the preceding message only)
