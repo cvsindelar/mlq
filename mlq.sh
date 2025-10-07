@@ -58,7 +58,6 @@ function __mlq_reset() {
         #  just prevents a confusing 'unload' message since it is immediately loaded again.
         # However, if 'module restore' were ever made to work with shortcuts, the mlq 
         #  unloading would probably be needed to prevent quirky behavior on the part of lmod.
-
         __mlq_orig_module unload ${__mlq_version} >& /dev/null
         module "${@:1}"
     else
@@ -416,6 +415,7 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
     function ml() {
         local retval
         retval=0
+	echo blarchie
         __mlq "${@:1}"
         retVal="$?"
         return "${retVal}"
@@ -445,59 +445,65 @@ export __mlq_ycrc_r_fudge_switch=1
 
 # If requested, remove all traces of mlq during the mlq module unload
 if [[ "$1" == "--mlq_unload" ]]; then
-
-    unset __mlq_ycrc_r_fudge_switch
-    
-    # Unload all shortcuts first
-    __mlq_shortcut_reset
-    
-    # Below, restore original ml and module commands. This script is structured
-    #  so that if the __mlq function exists, then __mlq_orig_ml and __mlq_orig_module
-    #  also exist
     if [[ `type -t __mlq 2> /dev/null` == 'function' ]] ; then
-        if [[ `declare -f __mlq_orig_module | grep -v __mlq_orig_module | grep mlq` ]] ; then
-            echo "${__mlq_moo}"
-            echo 'ERROR: the mlq environment has become really, really confused!'
-            echo 'To restore normal module-loading behavior, you may need to'
-            echo 'log out and log in again!'
-            return 1
-        fi
-                
-        # Restore the lmod 'ml' and 'module' commands
-        # eval "$(echo "ml()"; declare -f __mlq_orig_ml | tail -n +2)"
-        eval "$(echo "ml()"; declare -f __mlq_orig_ml | tail -n +2)"
-        eval "$(echo "module()"; declare -f __mlq_orig_module | tail -n +2)"
-        unset -f __mlq_orig_ml
-        unset -f __mlq_orig_module
+	# Below, we will restore original ml and module commands using saved copies
+	#  '__ml_orig_module' and '__ml_orig_ml'.
+	# First, we sanity check that the '__mlq_orig_module' function exists and is not corrupted
+	#  by script lines containing 'mlq' - which means something went wrong like
+	#  mlq somehow got loaded on top of itself. 
+	if [[ -n `declare -f __mlq_orig_module | grep -v __mlq_orig_module | grep mlq` || \
+	    -z `declare -f __mlq_orig_module` || -z `declare -f __mlq_orig_ml` ]] ; then
+	    echo "${__mlq_moo}"
+	    echo 'ERROR: the mlq environment has become really, really confused!'
+	    echo 'To restore normal module-loading behavior, you may need to'
+	    echo 'log out and log in again!'
+	    return 1
+	fi
+
+	# Unload all shortcuts first
+	__mlq_shortcut_reset
+
+	unset __mlq_ycrc_r_fudge_switch
+
+	# Restore the lmod 'ml' and 'module' commands
+	# This script is structured so that if the __mlq function exists,
+	#   then __mlq_orig_ml and __mlq_orig_module also exist
+	eval "$(echo "ml()"; declare -f __mlq_orig_ml | tail -n +2)"
+	eval "$(echo "module()"; declare -f __mlq_orig_module | tail -n +2)"
+	unset -f __mlq_orig_ml
+	unset -f __mlq_orig_module
+
+	unset -f __mlq
+	unset -f __mlq_reset
+	unset -f __mlq_shortcut_reset
+	unset -f __mlqs_active
+
+	unset __mlq_loaded
+
+	unset __mlq_version
+	unset __mlq_path
+	unset __mlq_base_dir
+	unset __mlq_prebuilds_dir
+
+	unset __mlq_moo
+	unset __mlq_welcome
+
+	unset -f mlq_check
+	unset -f __mlq_parse_module_tree_iter
+
+	unset __mlq_module_version
+	unset __mlq_module_file
+	unset __mlq_module_callstack
+	unset __mlq_expected_versions
+
+	echo '[mlq] Goodbye! To restore fast module loading, do: '"'"ml mlq"'"
+	# echo "${__mlq_moo}"
+
+	return
+    else
+	echo 'mlq is not currently loaded'
+	return
     fi
-
-    unset -f __mlq
-    unset -f __mlq_reset
-    unset -f __mlq_shortcut_reset
-    unset -f __mlqs_active
-
-    unset __mlq_loaded
-
-    unset __mlq_version
-    unset __mlq_path
-    unset __mlq_base_dir
-    unset __mlq_prebuilds_dir
-
-    unset __mlq_moo
-    unset __mlq_welcome
-    
-    unset -f mlq_check
-    unset -f __mlq_parse_module_tree_iter
-
-    unset __mlq_module_version
-    unset __mlq_module_file
-    unset __mlq_module_callstack
-    unset __mlq_expected_versions
-
-    echo '[mlq] Goodbye! To restore fast module loading, do: '"'"ml mlq"'"
-    # echo "${__mlq_moo}"
-
-    return
 fi
 
 # Location of the script and its default shortcut library
@@ -599,6 +605,8 @@ EOF
     ###########################################
     # --help, --helpful or no arguments: Print help info
     ###########################################
+
+    echo splarb $fall_back
     
     if [[ ( `printf '%s' "$1" | awk '($1 ~ "--h" && "--help" ~ $1) || \
                                      ($1 ~ "--h" && "--helpfull" ~ $1) || \
@@ -1076,6 +1084,32 @@ EOF
         local load_dir
         unset load_lua
         unset load_dir
+
+	# Supersede any outdated user mlq fast modules if a newer prebuilt version
+	#  has become available
+        # if [[ 0 == 1 ]] ; then
+	
+        if [[ -f "${quikmod_lua}" && -f "${prebuild_lua}" ]] ; then
+	    if [[ "${prebuild_lua}" -nt "${quikmod_lua}" ]] ; then
+		echo 'Note: your fast module for '"${shortcut_name}"' is now superseded by'
+		echo '    a newer, prebuilt one; your old one is moved to ~/.mlq/outdated'
+		echo 'If you really need to keep your old one, this means there are bigger problems, but you can do:'
+		echo '  mv '"${mlq_dir}"/outdated/"${target_dir}"' '"${mlq_dir}"
+		echo ' touch '"${quikmod_lua}"
+		mkdir -p ${mlq_dir}/outdated
+		if [[ -d ${mlq_dir}/outdated/${collection_name} ]] ; then
+		    /bin/rm -r ${mlq_dir}/outdated/${collection_name}
+		fi
+		/bin/mv -f ${target_dir} ${mlq_dir}/outdated
+
+		if [[ -d "${target_dir}.d" ]] ; then
+                    rmdir "${target_dir}.d"
+		fi
+		load_lua="${prebuild_lua}"
+		load_dir="${__mlq_prebuilds_dir}"
+	    fi
+	fi
+	
         if [[ -f "${quikmod_lua}" ]] ; then
             load_lua="${quikmod_lua}"
             load_dir="${mlq_dir}"
@@ -1797,9 +1831,31 @@ EOF
     ###########################################
 
     if [[ "${request_type}" == 'load' || "${request_type}" == 'auto' ]] ; then
+	
+	# If the user has already loaded an ordinary module, revert to ordinary module loading 
+	if [[ -n `__mlq_orig_module -t --redirect list|grep -v StdEnv|grep -v '^mlq'` ]] ; then
+	    # __mlq_orig_module list
+	    # echo 'Ordinary module load on top of previously loaded modules:'
+	    # __mlq_orig_module -t --redirect list|grep -v StdEnv|grep -v '^mlq'
+	    fall_back=1
+	fi
+
+	# If the user has already loaded a fast module, revert to ordinary module loading and
+	#  also add back the corresponding 'slow' modules from the fast module
+	local __mod
+	__mod=`__mlq_orig_module -t --redirect list|grep -v StdEnv|grep '^mlq[-]'`
+	if [[ -n ${__mod} ]] ; then
+            mod_file=`__mlq_orig_module --redirect --location show "${__mod}"`
+	    module_spec_full=(${module_spec_full[@]} `cat ${mod_file%.*}.spec`)
+	    echo blarch ${module_spec_full[@]}
+	    __mlq_shortcut_reset
+	    fall_back=1
+	fi
+	    
         ###########################################
-        # Below are the 3 conditions that need to be satisfied to proceed with shortcut loading:
-        #  (1) shortcut file must exist; (2) shortcut building, if it occurred, must have succeeded
+        # Below are the 3 other conditions that need to be satisfied to proceed with shortcut loading:
+        #  (1) shortcut file must exist;
+	#  (2) shortcut building, if it occurred, must have succeeded
         #  (3) the shortcut must not be disabled (disabled = ".d" empty directory present)
         ###########################################
         if [[ "${load_lua}" && ! "${fall_back}" && ! -d "${target_dir}.d" ]] ; then

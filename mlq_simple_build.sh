@@ -26,6 +26,8 @@ shortcut_name=`echo "${shortcut_name}"|awk '{gsub("/","-",$0); print $0}'`
 ##################
 # Get the list of module files, in the correct build order: 'ordered_module_list'
 ##################
+echo 'Getting the build order (this can be very slow!)'
+echo ' (for a faster way, use mlq_simple_build_fast_and_convoluted.sh)'
 ordered_module_list=( $(for m in `ml --redirect -t|grep -v StdEnv` ; do ml --redirect --location show $m ; done) )
 
 ##################
