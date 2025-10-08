@@ -1854,8 +1854,6 @@ EOF
 		    __loaded_mod_vers=`basename ${__loaded_modfile}`
 		    __loaded_mod=`dirname ${__loaded_modfile}`
 		    __loaded_mod=`basename ${__loaded_mod}`
-		    echo blarch "${__loaded_mod}/${__loaded_mod_vers}"
-		    echo splarb "${__new_mod}/${__new_mod_vers}"
 		else
 		    __new_mod=`basename ${__new_modfile[@]}`
 		    __loaded_mod=`basename ${__loaded_modfile}`
