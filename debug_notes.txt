@@ -1,0 +1,23 @@
+10/3/25
+
+# Conclusion: I think R mlq module did not auto update because its list of required modules
+#  changed (ordered module list) to include R bundle bioconductor. And so in the mlq functin,
+#  if the content of the saved list of dependent modules did not actually change, it is unable
+#  to detect the difference.
+
+#  and this does not get caught in the mlq checking code. To check if the list of required modules
+#  in the actual module changes
+
+(stat -c '%y' ${ordered_module_list_mod[@]}; cat ${ordered_module_list_mod[@]}) > stat_mod
+(stat -c '%y' ${ordered_module_list_mrr[@]}; cat ${ordered_module_list_mrr[@]}) > stat_mrr
+(stat -c '%y' ${ordered_module_list_cvs2[@]}; cat ${ordered_module_list_cvs2[@]}) > stat_cvs2
+
+load_lua_mod=/apps/software/2022b/software/mlq/1.1/mlq_prebuilds/R-4_4_1-foss-2022b/mlq-R/4.4.1-foss-2022b.lua
+load_lua_mrr=/home/cvs2/mlq_mrr68/R-4_4_1-foss-2022b/mlq-R/4.4.1-foss-2022b.lua
+load_lua_cvs2=/home/cvs2/.mlq/R-4_4_1-foss-2022b/mlq-R/4.4.1-foss-2022b.lua
+
+ordered_module_list_mod=(`cat "${load_lua_mod%.*}".mod_list`)
+ordered_module_list_mrr=(`cat "${load_lua_mrr%.*}".mod_list`)
+ordered_module_list_cvs2=(`cat "${load_lua_cvs2%.*}".mod_list`)
+
+eval "stat -c '%y' ${ordered_module_list_cvs2[@]}; cat ${ordered_module_list_cvs2[@]}" | cmp${load_lua_mod%.*}.lua_record
