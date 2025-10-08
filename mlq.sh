@@ -1929,25 +1929,31 @@ EOF
                       ${module_spec[0]} == 'purge' ]] ; then
                 __mlq_reset ${module_spec[@]}
             else
-		local __loaded_mod
-		__loaded_mod=`__mlq_orig_module -t --redirect list|grep -v StdEnv|grep '^mlq[-]'`
-                if [[ "${build_modpath}" != "${mlq_user_orig_modpath}" ]] ; then
-                    # Restore the modulepath from the shortcut in case a custom path was present
-                    #  during the original shortcut build (i.e. if the user had previously done 'module use')
-                    # This will only happen if an automatic rebuild occurs during a module load and then fails;
-                    #  the code then falls through to here:
-                    export MODULEPATH="${build_modpath}"
-		elif [[ -n ${__loaded_mod} ]] ; then
-		    # If the user has already loaded a fast module, revert to ordinary module loading and
-		    #  reproduce the fast module using its original 'slow' modules, also adding the new one(s)
-		    mod_file=`__mlq_orig_module --redirect --location show "${__loaded_mod}"`
-		    module_spec=(`cat ${mod_file%.*}.spec` ${module_spec[@]})
-		    __mlq_shortcut_reset
-                    export MODULEPATH=`cat ${mod_file%.*}.modpath`
-                elif [[ "${mlq_user_orig_modpath}" ]] ; then
-                    # Restore the original module path prior to exiting
-                    export MODULEPATH="${mlq_user_orig_modpath}"
-                fi
+		# All other commands
+		
+		# Do some extra logic if the user is asking to load modules
+		__mlq_orig_module is-avail ${module_spec[@]} && {
+		
+		    local __loaded_mod
+		    __loaded_mod=(`__mlq_orig_module -t --redirect list|grep -v StdEnv|grep '^mlq[-]'`)
+		    if [[ "${build_modpath}" != "${mlq_user_orig_modpath}" ]] ; then
+			# Restore the modulepath from the shortcut in case a custom path was present
+			#  during the original shortcut build (i.e. if the user had previously done 'module use')
+			# This will only happen if an automatic rebuild occurs during a module load and then fails;
+			#  the code then falls through to here:
+			export MODULEPATH="${build_modpath}"
+		    elif [[ -n ${__loaded_mod[@]} ]] ; then
+			# If the user has already loaded a fast module, revert to ordinary module loading and
+			#  reproduce the fast module using its original 'slow' modules, also adding the new one(s)
+			mod_file=`__mlq_orig_module --redirect --location show "${__loaded_mod[@]}"`
+			module_spec=(`cat ${mod_file%.*}.spec` ${module_spec[@]})
+			__mlq_shortcut_reset
+			export MODULEPATH=`cat ${mod_file%.*}.modpath`
+		    elif [[ "${mlq_user_orig_modpath}" ]] ; then
+			# Restore the original module path prior to exiting
+			export MODULEPATH="${mlq_user_orig_modpath}"
+		    fi
+		}
 
                 # echo 'Executing: '"'"'ml '"${module_spec[@]}""'"
                 __mlq_orig_ml ${module_spec[@]}
