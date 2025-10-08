@@ -1830,18 +1830,40 @@ EOF
 
     if [[ "${request_type}" == 'load' || "${request_type}" == 'auto' ]] ; then
 	
-	# If the user already has modules loaded, revert to ordinary module loading
 	local __loaded_mod
-	local __modfile
+	local __loaded_mod_vers
+	local __loaded_modfile
 	__loaded_mod=(`__mlq_orig_module -t --redirect list|grep -v StdEnv|grep -v '^mlq[/]'`)
+	local __new_mod
+	local __new_mod_vers
+	local __new_modfile
+	__new_modfile=(${load_lua[@]})
+
+	# If the user already has modules loaded, revert to ordinary module loading
 	if [[ -n ${__loaded_mod} ]] ; then
 	    fall_back=1
-	    if  [[ ${#__loaded_mod[@]} == 1 ]] ; then
-		__modfile=$(__mlq_orig_module --redirect --location show "${__loaded_mod}")
-		# Special case: we allow to skip if the same fast module specified was loaded already
-		if [[ "${__modfile[@]}" == "${load_lua[@]}" ]] ; then
-		    echo 'Fast module '"${module_spec[@]}"' is already loaded'
-		    return
+	    # If the user is requesting a reload of the same module, we can unset fall_back
+	    #  and let the mlq decide what to do
+	    if  [[ ${#__loaded_mod[@]} == 1 && ${#__new_modfile[@]} == 1 ]] ; then
+		__loaded_modfile=$(__mlq_orig_module --redirect --location show "${__loaded_mod}")
+		# Carefully check if the module names contain version numbers
+		if [[ `basename ${__loaded_modfile}` =~ ^[0-9] && `basename ${__new_modfile}` =~ ^[0-9] ]] ; then
+		    __new_mod_vers=`basename ${__new_modfile[@]}`
+		    __new_mod=`dirname ${__new_modfile[@]}`
+		    __new_mod=`basename ${__new_mod}`
+		    __loaded_mod_vers=`basename ${__loaded_modfile}`
+		    __loaded_mod=`dirname ${__loaded_modfile}`
+		    __loaded_mod=`basename ${__loaded_mod}`
+		    echo blarch "${__loaded_mod}/${__loaded_mod_vers}"
+		    echo splarb "${__new_mod}/${__new_mod_vers}"
+		else
+		    __new_mod=`basename ${__new_modfile[@]}`
+		    __loaded_mod=`basename ${__loaded_modfile}`
+		fi
+		# if [[ "${__loaded_mod}/${__loaded_mod_vers}" == "${__new_mod}/${__new_mod_vers}" ]] ; then
+		# echo 'Fast module '"${__new_mod}/${__new_mod_vers}"' is already loaded'
+		if [[ "${__loaded_mod}" == "${__new_mod}" ]] ; then
+		    unset fall_back
 		fi
 	    fi
 	fi
