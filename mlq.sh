@@ -102,7 +102,7 @@ function __mlq_shortcut_reset() {
         for mod in ${mlqs_active[@]} ; do
             # Path may not exist if mlqs_active is out of date (i.e., shortcuts removed by 'module reset')
             mlq_path=`__mlq_orig_module -t --redirect --location show "${mod}" 2>&1`
-            if [[ $#{mlq_path} == 1 ]] ; then
+            if [[ $#{mlq_path} > 0 ]] ; then
                 mlq_path="${mlq_path%/*}"
                 __mlq_orig_module unuse "${mlq_path}"
             fi
@@ -415,7 +415,6 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
     function ml() {
         local retval
         retval=0
-	echo blarchie
         __mlq "${@:1}"
         retVal="$?"
         return "${retVal}"
@@ -606,8 +605,6 @@ EOF
     # --help, --helpful or no arguments: Print help info
     ###########################################
 
-    echo splarb $fall_back
-    
     if [[ ( `printf '%s' "$1" | awk '($1 ~ "--h" && "--help" ~ $1) || \
                                      ($1 ~ "--h" && "--helpfull" ~ $1) || \
                                      ($1 ~ "--h" && "--helpnotes" ~ $1) || \
@@ -1094,8 +1091,9 @@ EOF
 		echo 'Note: your fast module for '"${shortcut_name}"' is now superseded by'
 		echo '    a newer, prebuilt one; your old one is moved to ~/.mlq/outdated'
 		echo 'If you really need to keep your old one, this means there are bigger problems, but you can do:'
-		echo '  mv '"${mlq_dir}"/outdated/"${target_dir}"' '"${mlq_dir}"
-		echo ' touch '"${quikmod_lua}"
+		echo '  mv '"${mlq_dir}"/outdated/`basename "${target_dir}"`' '"${mlq_dir}"
+		echo '  touch '"${quikmod_lua}"
+		echo ''
 		mkdir -p ${mlq_dir}/outdated
 		if [[ -d ${mlq_dir}/outdated/${collection_name} ]] ; then
 		    /bin/rm -r ${mlq_dir}/outdated/${collection_name}
@@ -1825,33 +1823,29 @@ EOF
             fi
         fi          
     fi
-    
+
     ###########################################
     # Do shortcut or module loading
     ###########################################
 
     if [[ "${request_type}" == 'load' || "${request_type}" == 'auto' ]] ; then
 	
-	# If the user has already loaded an ordinary module, revert to ordinary module loading 
-	if [[ -n `__mlq_orig_module -t --redirect list|grep -v StdEnv|grep -v '^mlq'` ]] ; then
-	    # __mlq_orig_module list
-	    # echo 'Ordinary module load on top of previously loaded modules:'
-	    # __mlq_orig_module -t --redirect list|grep -v StdEnv|grep -v '^mlq'
+	# If the user already has modules loaded, revert to ordinary module loading
+	local __loaded_mod
+	local __modfile
+	__loaded_mod=(`__mlq_orig_module -t --redirect list|grep -v StdEnv|grep -v '^mlq[/]'`)
+	if [[ -n ${__loaded_mod} ]] ; then
 	    fall_back=1
+	    if  [[ ${#__loaded_mod[@]} == 1 ]] ; then
+		__modfile=$(__mlq_orig_module --redirect --location show "${__loaded_mod}")
+		# Special case: we allow to skip if the same fast module specified was loaded already
+		if [[ "${__modfile[@]}" == "${quikmod_lua[@]}" ]] ; then
+		    echo 'Fast module '"${module_spec[@]}"' is already loaded'
+		    return
+		fi
+	    fi
 	fi
 
-	# If the user has already loaded a fast module, revert to ordinary module loading and
-	#  also add back the corresponding 'slow' modules from the fast module
-	local __mod
-	__mod=`__mlq_orig_module -t --redirect list|grep -v StdEnv|grep '^mlq[-]'`
-	if [[ -n ${__mod} ]] ; then
-            mod_file=`__mlq_orig_module --redirect --location show "${__mod}"`
-	    module_spec_full=(${module_spec_full[@]} `cat ${mod_file%.*}.spec`)
-	    echo blarch ${module_spec_full[@]}
-	    __mlq_shortcut_reset
-	    fall_back=1
-	fi
-	    
         ###########################################
         # Below are the 3 other conditions that need to be satisfied to proceed with shortcut loading:
         #  (1) shortcut file must exist;
@@ -1915,12 +1909,21 @@ EOF
                       ${module_spec[0]} == 'purge' ]] ; then
                 __mlq_reset ${module_spec[@]}
             else
-                # Restore the modulepath from the shortcut in case a custom path was present
-                #  during the original shortcut build (i.e. if the user had previously done 'module use')
-                # This will only happen if an automatic rebuild occurs during a module load and then fails;
-                #  the code then falls through to here:
-                if [[ "${build_modpath}" ]] ; then
+		local __loaded_mod
+		__loaded_mod=`__mlq_orig_module -t --redirect list|grep -v StdEnv|grep '^mlq[-]'`
+                if [[ "${build_modpath}" != "${mlq_user_orig_modpath}" ]] ; then
+                    # Restore the modulepath from the shortcut in case a custom path was present
+                    #  during the original shortcut build (i.e. if the user had previously done 'module use')
+                    # This will only happen if an automatic rebuild occurs during a module load and then fails;
+                    #  the code then falls through to here:
                     export MODULEPATH="${build_modpath}"
+		elif [[ -n ${__loaded_mod} ]] ; then
+		    # If the user has already loaded a fast module, revert to ordinary module loading and
+		    #  reproduce the fast module using its original 'slow' modules, also adding the new one(s)
+		    mod_file=`__mlq_orig_module --redirect --location show "${__loaded_mod}"`
+		    module_spec=(`cat ${mod_file%.*}.spec` ${module_spec[@]})
+		    __mlq_shortcut_reset
+                    export MODULEPATH=`cat ${mod_file%.*}.modpath`
                 elif [[ "${mlq_user_orig_modpath}" ]] ; then
                     # Restore the original module path prior to exiting
                     export MODULEPATH="${mlq_user_orig_modpath}"
