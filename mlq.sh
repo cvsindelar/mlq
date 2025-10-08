@@ -1839,7 +1839,7 @@ EOF
 	    if  [[ ${#__loaded_mod[@]} == 1 ]] ; then
 		__modfile=$(__mlq_orig_module --redirect --location show "${__loaded_mod}")
 		# Special case: we allow to skip if the same fast module specified was loaded already
-		if [[ "${__modfile[@]}" == "${quikmod_lua[@]}" ]] ; then
+		if [[ "${__modfile[@]}" == "${load_lua[@]}" ]] ; then
 		    echo 'Fast module '"${module_spec[@]}"' is already loaded'
 		    return
 		fi
