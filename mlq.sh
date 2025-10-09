@@ -379,7 +379,8 @@ if [[ "$1" == "--mlq_load" && ! `type -t __mlq 2> /dev/null` == 'function' ]]; t
             mlqs_active=`__mlqs_active`
             if [[ "${mlqs_active}" ]] ; then
                 echo "${__mlq_moo}"
-                echo 'Sorry, shortcuts cannot be saved in an lmod collection'
+                echo 'Sorry, shortcuts cannot be saved in an lmod collection when using mlq'
+		echo ''
                 echo 'To load a shortcut on login, you can put a line in your shell startup file (i.e., .bashrc):'
                 echo "${mlqs_active}" | awk '{print "  ml mlq; ml " substr($1,5,length($1)-4)}'
                 return 1
@@ -1837,6 +1838,12 @@ EOF
 		  ${module_spec[0]} == 'reset' || \
 		  ${module_spec[0]} == 'purge' ]] ; then
 	    __mlq_reset ${module_spec[@]}
+	# Make sure the user doesn't use 'save' with a shortcut, which won't work
+	#  the 'module' function (with 'mlq' hooks) handles this case
+	elif [[ ( ${module_spec[0]} == 'save' || ${module_spec[0]} == 's' ) ]] ; then
+	    module ${module_spec[@]}
+	    return_status=$?
+	    return $return_status
 	else	    
 	    ###########################################
 	    # First, we check if shortcuts can even be used.
@@ -1939,16 +1946,6 @@ EOF
 	    # We do not use 'else' here because shortcut loading in the above
 	    #  clause can fail, which causes $fall_back to be set after the first logical test
 	    if [[ ! "${load_lua}" || "${fall_back}" || -d "${target_dir}.d" ]] ; then
-
-		# Make sure the user doesn't use 'save' with a shortcut, which won't work
-		#  the 'module' function (with 'mlq' hooks) handles this case
-		if [[ ( ${module_spec[0]} == 'save' || ${module_spec[0]} == 's' ) ]] ; then
-		    module ${module_spec[@]}
-		    return_status=$?
-		    return $return_status
-		fi
-
-		# All other commands
 
 		# Do some extra logic if the user is asking to load modules
 		__mlq_orig_module is-avail ${module_spec[@]} && {
