@@ -570,10 +570,12 @@ EOF
     unset shortcut_name
     
     local fall_back
+    local reload_only
     local rebuild
     local ordered_module_list
 
     unset fall_back
+    unset reload_only
     unset rebuild
     unset ordered_module_list
 
@@ -1825,115 +1827,131 @@ EOF
     fi
 
     ###########################################
-    # Do shortcut or module loading
+    # Do shortcut or module loading/unloading
     ###########################################
 
     if [[ "${request_type}" == 'load' || "${request_type}" == 'auto' ]] ; then
 	
-	local __loaded_mod
-	local __loaded_mod_vers
-	local __loaded_modfile
-	__loaded_mod=(`__mlq_orig_module -t --redirect list|grep -v StdEnv|grep -v '^mlq[/]'`)
-	local __new_mod
-	local __new_mod_vers
-	local __new_modfile
-	__new_modfile=(${load_lua[@]})
+	# Reset/restore/purge: use __mlq_reset to keep mlq around
+	if [[ ${module_spec[0]} == 'restore' || ${module_spec[0]} == 'r' || \
+		  ${module_spec[0]} == 'reset' || \
+		  ${module_spec[0]} == 'purge' ]] ; then
+	    __mlq_reset ${module_spec[@]}
+	else	    
+	    ###########################################
+	    # First, we check if shortcuts can even be used.
+	    # If not, we set the 'fall_back' shell variable
+	    ###########################################
+	    local __loaded_mod
+	    local __loaded_mod_vers
+	    local __loaded_modfile
+	    __loaded_mod=(`__mlq_orig_module -t --redirect list|grep -v StdEnv|grep -v '^mlq[/]'`)
+	    local __new_mod
+	    local __new_mod_vers
+	    local __new_modfile
+	    __new_mod=(${module_spec[@]})
 
-	# If the user already has modules loaded, revert to ordinary module loading
-	if [[ -n ${__loaded_mod} ]] ; then
-	    fall_back=1
-	    # If the user is requesting a reload of the same module, we can unset fall_back
-	    #  and let the mlq decide what to do
-	    if  [[ ${#__loaded_mod[@]} == 1 && ${#__new_modfile[@]} == 1 ]] ; then
-		__loaded_modfile=$(__mlq_orig_module --redirect --location show "${__loaded_mod}")
-		# Carefully check if the module names contain version numbers
-		if [[ `basename ${__loaded_modfile}` =~ ^[0-9] && `basename ${__new_modfile}` =~ ^[0-9] ]] ; then
-		    __new_mod_vers=`basename ${__new_modfile[@]}`
-		    __new_mod=`dirname ${__new_modfile[@]}`
-		    __new_mod=`basename ${__new_mod}`
-		    __loaded_mod_vers=`basename ${__loaded_modfile}`
-		    __loaded_mod=`dirname ${__loaded_modfile}`
-		    __loaded_mod=`basename ${__loaded_mod}`
-		else
-		    __new_mod=`basename ${__new_modfile[@]}`
-		    __loaded_mod=`basename ${__loaded_modfile}`
-		fi
-		# if [[ "${__loaded_mod}/${__loaded_mod_vers}" == "${__new_mod}/${__new_mod_vers}" ]] ; then
-		# echo 'Fast module '"${__new_mod}/${__new_mod_vers}"' is already loaded'
-		if [[ "${__loaded_mod}" == "${__new_mod}" ]] ; then
-		    unset fall_back
+	    # If the user already has modules loaded, revert to ordinary module loading
+	    if [[ -n ${__loaded_mod} ]] ; then
+		# Setting fall_back means do slow module loading
+		fall_back=1
+
+		# Below we detect if fast module loading may still be possible:
+		#  if one module is loaded and one is requested, and these are the same,
+		#  we can unset fall_back and let mlq sort it out:
+		if  [[ ${#__loaded_mod[@]} == 1 && ${#module_spec[@]} == 1 ]] ; then		
+		    __loaded_modfile=$(__mlq_orig_module --redirect --location show "${__loaded_mod}")
+
+		    # If loaded module is a fast module, find the original module
+		    if [[ -n `__mlqs_active` ]] ; then
+			__loaded_mod=(`cat "${__loaded_modfile%.*}".spec`)
+			__loaded_modfile=$(__mlq_orig_module --redirect --location show "${__loaded_mod}")
+		    fi
+
+		    __new_modfile=$(__mlq_orig_module --redirect --location show "${__new_mod}")
+
+		    # Carefully check if the module names contain version numbers
+		    if [[ `basename ${__loaded_modfile}` =~ ^[0-9] && `basename ${__new_modfile}` =~ ^[0-9] ]] ; then
+			__new_mod_vers=`basename ${__new_modfile[@]}`
+			__new_mod=`dirname ${__new_modfile[@]}`
+			__new_mod=`basename ${__new_mod}`
+			__loaded_mod_vers=`basename ${__loaded_modfile}`
+			__loaded_mod=`dirname ${__loaded_modfile}`
+			__loaded_mod=`basename ${__loaded_mod}`
+		    else
+			__new_mod=`basename ${__new_modfile[@]}`
+			__loaded_mod=`basename ${__loaded_modfile}`
+		    fi
+
+		    if [[ "${__loaded_mod}" == "${__new_mod}" ]] ; then
+			unset fall_back
+			reload_only=1
+		    fi
 		fi
 	    fi
-	fi
 
-        ###########################################
-        # Below are the 3 other conditions that need to be satisfied to proceed with shortcut loading:
-        #  (1) shortcut file must exist;
-	#  (2) shortcut building, if it occurred, must have succeeded
-        #  (3) the shortcut must not be disabled (disabled = ".d" empty directory present)
-        ###########################################
-        if [[ "${load_lua}" && ! "${fall_back}" && ! -d "${target_dir}.d" ]] ; then
-            local spec
-            spec=`awk '{printf("\n"); for(i=1; i <= NF-1; ++i) printf("%s, ", $i); printf($i)}' "${load_lua%.*}".spec`
+	    ###########################################
+	    # Below are the 3 other conditions that need to be satisfied to proceed with shortcut loading:
+	    #  (1) shortcut file must exist ('load_lua');
+	    #  (2) shortcut building, if it occurred, must have succeeded ('fall_back' not set)
+	    #  (3) the shortcut must not be disabled (disabled = ".d" empty directory present)
+	    ###########################################
+	    if [[ "${load_lua}" && ! "${fall_back}" && ! -d "${target_dir}.d" ]] ; then
+		local spec
+		spec=`awk '{printf("\n"); for(i=1; i <= NF-1; ++i) printf("%s, ", $i); printf($i)}' "${load_lua%.*}".spec`
 
-            printf "%s" "[mlq] Loading shortcut ${shortcut_name} with included modules:"
-            printf "${spec}"
-            printf '..'
-            
-            # Don't try to do this trick with other modules around
-            __mlq_reset
-            echo '.'
+		printf "%s" "[mlq] Loading shortcut ${shortcut_name} with included modules:"
+		printf "${spec}"
+		printf '..'
 
-	    # Restore the user's MODULEPATH but only if needed (otherwise, this introduces a ~0.3 sec lag)
-	    if [[ `echo "${mlq_user_orig_modpath}" $MODULEPATH | awk '$1 != $2 {print 1}'` ]] ; then 
-		__mlq_orig_module use "${mlq_user_orig_modpath}" ; 
-	    fi	    
-	    # Add the shortcut's path to MODULEPATH
-            __mlq_orig_module use -a "${load_dir}/${collection_name}"
+		# Don't try to do this trick with other modules around
+		__mlq_reset
+		echo '.'
+
+		# Restore the user's MODULEPATH but only if needed (otherwise, this introduces a ~0.3 sec lag)
+		if [[ `echo "${mlq_user_orig_modpath}" $MODULEPATH | awk '$1 != $2 {print 1}'` ]] ; then 
+		    __mlq_orig_module use "${mlq_user_orig_modpath}" ; 
+		fi	    
+		# Add the shortcut's path to MODULEPATH
+		__mlq_orig_module use -a "${load_dir}/${collection_name}"
+
+		__mlq_orig_module load "${shortcut_name_full}"
+
+		if [[ $? == 0 ]] ; then
+		    echo ''
+		    echo 'Use '"'"'ml reset'"'"' to turn off this shortcut.'
+		    echo ''
+		else
+		    echo 'An error occurred loading the shortcut. Falling back to ordinary module loading...'
+		    module_spec=(`cat "${load_lua%.*}".spec`)
+		    build_modpath=(`cat "${load_lua%.*}".modpath`)
+		    fall_back=1
+		fi
+	    fi
+
+	    ###########################################
+	    # Ordinary module functions (anything other than a shortcut):
+	    #  Use the 'lmod' 'ml' or 'module' commands
+	    ###########################################
 	    
-            __mlq_orig_module load "${shortcut_name_full}"
+	    # Below covers all the cases not covered by the preceding if statement
+	    #  (Boolean negation of the logical statement)
+	    # We do not use 'else' here because shortcut loading in the above
+	    #  clause can fail, which causes $fall_back to be set after the first logical test
+	    if [[ ! "${load_lua}" || "${fall_back}" || -d "${target_dir}.d" ]] ; then
 
-            if [[ $? == 0 ]] ; then
-                echo ''
-                echo 'Use '"'"'ml reset'"'"' to turn off this shortcut.'
-                echo ''
-            else
-                echo 'An error occurred loading the shortcut. Falling back to ordinary module loading...'
-                module_spec=(`cat "${load_lua%.*}".spec`)
-                build_modpath=(`cat "${load_lua%.*}".modpath`)
-                fall_back=1
-            fi
-        fi
+		# Make sure the user doesn't use 'save' with a shortcut, which won't work
+		#  the 'module' function (with 'mlq' hooks) handles this case
+		if [[ ( ${module_spec[0]} == 'save' || ${module_spec[0]} == 's' ) ]] ; then
+		    module ${module_spec[@]}
+		    return_status=$?
+		    return $return_status
+		fi
 
-        ###########################################
-        # Ordinary module functions (anything other than a shortcut):
-        #  Use the 'lmod' 'ml' or 'module' commands
-        ###########################################
-        # Below covers all the cases not covered by the preceding if statement
-        #  (Boolean negation of the logical statement)
-        # We do not use 'else' here because shortcut loading in the above
-        #  clause can fail, which causes $fall_back to be set after the first logical test
-        if [[ ! "${load_lua}" || "${fall_back}" || -d "${target_dir}.d" ]] ; then
-
-            # Make sure the user doesn't use 'save' with a shortcut, which won't work
-            #  the 'module' function (with 'mlq' hooks) handles this case
-            if [[ ( ${module_spec[0]} == 'save' || ${module_spec[0]} == 's' ) ]] ; then
-                module ${module_spec[@]}
-                return_status=$?
-                return $return_status
-            fi
-
-            # Reset/restore/purge: use __mlq_reset to keep mlq around
-            if [[ ${module_spec[0]} == 'restore' || ${module_spec[0]} == 'r' || \
-                      ${module_spec[0]} == 'reset' || \
-                      ${module_spec[0]} == 'purge' ]] ; then
-                __mlq_reset ${module_spec[@]}
-            else
 		# All other commands
-		
+
 		# Do some extra logic if the user is asking to load modules
 		__mlq_orig_module is-avail ${module_spec[@]} && {
-		
 		    local __loaded_mod
 		    __loaded_mod=(`__mlq_orig_module -t --redirect list|grep -v StdEnv|grep '^mlq[-]'`)
 		    if [[ "${build_modpath}" != "${mlq_user_orig_modpath}" ]] ; then
@@ -1945,8 +1963,11 @@ EOF
 		    elif [[ -n ${__loaded_mod[@]} ]] ; then
 			# If the user has already loaded a fast module, revert to ordinary module loading and
 			#  reproduce the fast module using its original 'slow' modules, also adding the new one(s)
-			mod_file=`__mlq_orig_module --redirect --location show "${__loaded_mod[@]}"`
-			module_spec=(`cat ${mod_file%.*}.spec` ${module_spec[@]})
+			# Skip this step if we are just reloading the same module (possibly different version)
+			if [[ -z ${reload_only} ]] ; then
+			    mod_file=`__mlq_orig_module --redirect --location show "${__loaded_mod[@]}"`
+			    module_spec=(`cat ${mod_file%.*}.spec` ${module_spec[@]})
+			fi
 			__mlq_shortcut_reset
 			export MODULEPATH=`cat ${mod_file%.*}.modpath`
 		    elif [[ "${mlq_user_orig_modpath}" ]] ; then
@@ -1955,12 +1976,12 @@ EOF
 		    fi
 		}
 
-                # echo 'Executing: '"'"'ml '"${module_spec[@]}""'"
-                __mlq_orig_ml ${module_spec[@]}
-                return_status=$?
-                return $return_status
-            fi
-        fi
+		# echo 'Executing: '"'"'ml '"${module_spec[@]}""'"
+		__mlq_orig_ml ${module_spec[@]}
+		return_status=$?
+		return $return_status
+	    fi
+	fi
     fi
 }
 
