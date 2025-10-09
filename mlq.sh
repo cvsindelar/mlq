@@ -581,15 +581,12 @@ EOF
     unset ordered_module_list
 
     ###########################################
-    # Bash command to save file info, including the full contents, size, and date,
-    #  for the set of lua modulefiles that defines a shortcut; this is used 
-    #  to test if any of them changed, meaning the shortcut should be rebuilt.
-    # Bash code is saved in string form to be executed later.
-    # When executed, it will require that the list of module files, $ordered_module_list, be set already.
     ###########################################
-    local build_lua_record
-    # build_lua_record='/bin/ls -lL ${ordered_module_list[@]}; cat ${ordered_module_list[@]}'
-    build_lua_record="stat -c '%y'"' ${ordered_module_list[@]}; cat ${ordered_module_list[@]}'
+    ###########################################
+    # Step 1. Detect and run accessory actions (not loading/building)
+    ###########################################
+    ###########################################
+    ###########################################
     
     ###########################################
     # Parse the arguments
@@ -902,7 +899,7 @@ EOF
     fi
 
     ###########################################
-    # '--build' option: specify a shortcut build
+    # Moo
     ###########################################
 
     if [[ `printf '%s' "$1" | awk '$1 == "--moo" {print 1}'` ]] ; then
@@ -946,6 +943,14 @@ X:::+XX+XXXXXXXXXXXXXXX...................+.
 EOF
 	return
     fi
+    
+    ###########################################
+    ###########################################
+    ###########################################
+    # Step 2. Process loading/building arguments
+    ###########################################
+    ###########################################
+    ###########################################
     
     ###########################################
     # '--build' option: specify a shortcut build
@@ -1228,9 +1233,26 @@ EOF
     fi
     
     ###########################################
+    ###########################################
+    ###########################################
+    # Step 3. Do shortcut building
+    ###########################################
+    ###########################################
+    ###########################################
+    
+    ###########################################
     # If a shortcut already exists, check if it needs to be rebuilt.
     ###########################################
 
+    # Bash command to save file info, including the full contents, size, and date,
+    #  for the set of lua modulefiles that defines a shortcut; this is used 
+    #  to test if any of them changed, meaning the shortcut should be rebuilt.
+    # Bash code is saved in string form to be executed later.
+    # When executed, it will require that the list of module files, $ordered_module_list, be set already.
+    local build_lua_record
+    # build_lua_record='/bin/ls -lL ${ordered_module_list[@]}; cat ${ordered_module_list[@]}'
+    build_lua_record="stat -c '%y'"' ${ordered_module_list[@]}; cat ${ordered_module_list[@]}'
+    
     if [[ -f "${load_lua}" && \
               ("${request_type}" == 'load' || "${request_type}" == 'build' || "${request_type}" == 'auto' ) ]]; then
 
@@ -1828,6 +1850,14 @@ EOF
     fi
 
     ###########################################
+    ###########################################
+    ###########################################
+    # Step 4. Shortcut, module loading/unloading etc.
+    ###########################################
+    ###########################################
+    ###########################################
+    
+    ###########################################
     # Do shortcut or module loading/unloading
     ###########################################
 
@@ -1852,10 +1882,12 @@ EOF
 	    local __loaded_mod
 	    local __loaded_mod_vers
 	    local __loaded_modfile
-	    __loaded_mod=(`__mlq_orig_module -t --redirect list|grep -v StdEnv|grep -v '^mlq[/]'`)
+	    
 	    local __new_mod
 	    local __new_mod_vers
 	    local __new_modfile
+
+	    __loaded_mod=(`__mlq_orig_module -t --redirect list|grep -v StdEnv|grep -v '^mlq[/]' 2> /dev/null`)
 	    __new_mod=(${module_spec[@]})
 
 	    # If the user already has modules loaded, revert to ordinary module loading
@@ -1898,7 +1930,8 @@ EOF
 	    fi
 
 	    ###########################################
-	    # Below are the 3 other conditions that need to be satisfied to proceed with shortcut loading:
+	    # Do shortcut loading if possible
+	    # There are 3 other conditions that must be satisfied to do this:
 	    #  (1) shortcut file must exist ('load_lua');
 	    #  (2) shortcut building, if it occurred, must have succeeded ('fall_back' not set)
 	    #  (3) the shortcut must not be disabled (disabled = ".d" empty directory present)
@@ -1937,8 +1970,8 @@ EOF
 	    fi
 
 	    ###########################################
-	    # Ordinary module functions (anything other than a shortcut):
-	    #  Use the 'lmod' 'ml' or 'module' commands
+	    # Ordinary lmod functions (anything other than a shortcut):
+	    #  Use the original lmod 'ml' or 'module' commands
 	    ###########################################
 	    
 	    # Below covers all the cases not covered by the preceding if statement
