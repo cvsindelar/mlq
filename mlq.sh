@@ -53,7 +53,6 @@ function __mlq_reset() {
     local tmp_mlq_loaded="${__mlq_loaded}"
 
     if [[ $# -gt 0 ]] ; then
-
 	# Unload mlq prior to reset/restore/purge; 
         #  this is currently unnecessary since these commands all unload mlq anyway;
         #  just prevents a confusing 'unload' message since it is immediately loaded again.
