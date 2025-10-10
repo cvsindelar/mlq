@@ -477,6 +477,9 @@ if [[ "$1" == "--mlq_unload" ]]; then
 	unset -f __mlq_reset
 	unset -f __mlq_shortcut_reset
 	unset -f __mlqs_active
+	# unset -f __mlq_active_modules
+	# unset -f __mlq_collection_name
+	# unset -f __mlq_get_default_module  
 
 	unset __mlq_loaded
 
@@ -1888,10 +1891,19 @@ EOF
 	    local __new_modfile
 
 	    __loaded_mod=(`__mlq_orig_module -t --redirect list|grep -v StdEnv|grep -v '^mlq[/]' 2> /dev/null`)
-	    __new_mod=(${module_spec[@]})
 
-	    # If the user already has modules loaded, revert to ordinary module loading
-	    if [[ -n ${__loaded_mod} ]] ; then
+	    # If loaded module is a fast module, find the original module
+	    if [[ -n ${load_lua} ]] ; then
+		__new_mod=(`cat "${load_lua%.*}".spec`)
+		__new_modfile=$(__mlq_orig_module --redirect --location show "${__new_mod}")
+	    else
+		__new_mod=(${module_spec[@]})
+		__new_modfile=$(__mlq_orig_module --redirect --location show "${__new_mod}" 2> /dev/null)
+	    fi
+
+	    # If the user already has modules loaded, and the user requested to load a new module
+	    #  then revert to ordinary module loading unless a reload is requested
+	    if [[ -n ${__loaded_mod} && -n ${__new_modfile} ]] ; then
 		# Setting fall_back means do slow module loading
 		fall_back=1
 
@@ -1906,8 +1918,6 @@ EOF
 			__loaded_mod=(`cat "${__loaded_modfile%.*}".spec`)
 			__loaded_modfile=$(__mlq_orig_module --redirect --location show "${__loaded_mod}")
 		    fi
-
-		    __new_modfile=$(__mlq_orig_module --redirect --location show "${__new_mod}")
 
 		    # Carefully check if the module names contain version numbers
 		    if [[ `basename ${__loaded_modfile}` =~ ^[0-9] && `basename ${__new_modfile}` =~ ^[0-9] ]] ; then
