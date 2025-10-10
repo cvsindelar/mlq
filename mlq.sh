@@ -1892,7 +1892,7 @@ EOF
 
 	    __loaded_mod=(`__mlq_orig_module -t --redirect list|grep -v StdEnv|grep -v '^mlq[/]' 2> /dev/null`)
 
-	    # If loaded module is a fast module, find the original module
+	    # If the requested module is a fast module, find the original module
 	    if [[ -n ${load_lua} ]] ; then
 		__new_mod=(`cat "${load_lua%.*}".spec`)
 		__new_modfile=$(__mlq_orig_module --redirect --location show "${__new_mod}")
