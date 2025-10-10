@@ -53,7 +53,8 @@ function __mlq_reset() {
     local tmp_mlq_loaded="${__mlq_loaded}"
 
     if [[ $# -gt 0 ]] ; then
-        # Below, we unload mlq prior to reset/restore/purge; 
+
+	# Unload mlq prior to reset/restore/purge; 
         #  this is currently unnecessary since these commands all unload mlq anyway;
         #  just prevents a confusing 'unload' message since it is immediately loaded again.
         # However, if 'module restore' were ever made to work with shortcuts, the mlq 
@@ -80,6 +81,8 @@ function __mlq_reset() {
             # If the reset/restore/purge lost the path to the mlq module, the below line could check for that:
             # if [[ ! `module --redirect --location show ${tmp_version} 2> /dev/null | awk '$0 ~ ".lua$"' ` ]] ; then
         fi
+    else
+	echo '[mlq] ERROR: lost track of the mlq module, this should never happen'
     fi
 }
 
@@ -2003,13 +2006,13 @@ EOF
 		    elif [[ -n ${__loaded_mod[@]} ]] ; then
 			# If the user has already loaded a fast module, revert to ordinary module loading and
 			#  reproduce the fast module using its original 'slow' modules, also adding the new one(s)
+			
 			# Skip this step if we are just reloading the same module (possibly different version)
 			if [[ -z ${reload_only} ]] ; then
 			    mod_file=`__mlq_orig_module --redirect --location show "${__loaded_mod[@]}"`
 			    module_spec=(`cat ${mod_file%.*}.spec` ${module_spec[@]})
 			fi
 			__mlq_shortcut_reset
-			export MODULEPATH=`cat ${mod_file%.*}.modpath`
 		    elif [[ "${mlq_user_orig_modpath}" ]] ; then
 			# Restore the original module path prior to exiting
 			export MODULEPATH="${mlq_user_orig_modpath}"
